@@ -67,7 +67,7 @@ function StatCard({
   icon: React.ReactNode;
 }) {
   return (
-    <Card className="bg-muted/30">
+    <Card className="shadow-sm ring-1 ring-border/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-xs font-medium uppercase tracking-widest text-muted-foreground font-mono">
           {label}

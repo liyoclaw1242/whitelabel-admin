@@ -30,12 +30,12 @@ export default function SettingsPage() {
           <ThemeCustomizer />
         </TabsContent>
         <TabsContent value="account" className="mt-6">
-          <div className="rounded-xl bg-muted/30 p-6 text-muted-foreground ring-1 ring-foreground/10">
+          <div className="rounded-xl p-6 text-muted-foreground shadow-sm ring-1 ring-border/50">
             Account settings will go here.
           </div>
         </TabsContent>
         <TabsContent value="notifications" className="mt-6">
-          <div className="rounded-xl bg-muted/30 p-6 text-muted-foreground ring-1 ring-foreground/10">
+          <div className="rounded-xl p-6 text-muted-foreground shadow-sm ring-1 ring-border/50">
             Notification preferences will go here.
           </div>
         </TabsContent>
