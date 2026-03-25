@@ -10,10 +10,13 @@ import { ThemeCustomizer } from "./theme-customizer";
 
 export default function SettingsPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
+        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground font-mono">
+          Configuration
+        </p>
+        <h1 className="mt-1 text-2xl font-bold -tracking-[0.02em]">Settings</h1>
+        <p className="mt-1 max-w-[60ch] text-sm text-muted-foreground">
           Manage your account and preferences.
         </p>
       </div>
@@ -27,12 +30,12 @@ export default function SettingsPage() {
           <ThemeCustomizer />
         </TabsContent>
         <TabsContent value="account" className="mt-6">
-          <div className="rounded-lg border p-6 text-muted-foreground">
+          <div className="rounded-xl bg-muted/30 p-6 text-muted-foreground ring-1 ring-foreground/10">
             Account settings will go here.
           </div>
         </TabsContent>
         <TabsContent value="notifications" className="mt-6">
-          <div className="rounded-lg border p-6 text-muted-foreground">
+          <div className="rounded-xl bg-muted/30 p-6 text-muted-foreground ring-1 ring-foreground/10">
             Notification preferences will go here.
           </div>
         </TabsContent>

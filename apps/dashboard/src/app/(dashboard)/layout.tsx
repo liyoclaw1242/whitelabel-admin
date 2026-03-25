@@ -159,7 +159,7 @@ function DashboardBreadcrumb() {
 
 function DashboardHeader() {
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
+    <header className="flex h-14 shrink-0 items-center gap-2 px-4 ring-1 ring-border/60 ring-inset">
       <SidebarTrigger />
       <Separator orientation="vertical" className="mr-2 h-4" />
       <DashboardBreadcrumb />
