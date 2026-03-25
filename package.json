@@ -1,0 +1,12 @@
+{
+  "name": "whitelabel-admin",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter dashboard dev",
+    "build": "pnpm --filter dashboard build",
+    "lint": "pnpm --filter dashboard lint"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
