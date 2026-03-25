@@ -1,8 +1,21 @@
 // Utility
 export { cn } from "./lib/utils";
 
+// Theme
+export { ThemeProvider, ThemeContext } from "./components/theme-provider";
+export type { ThemeContextValue } from "./components/theme-provider";
+export {
+  defaultLightTheme,
+  defaultDarkTheme,
+  brandBlueTheme,
+  brandGreenTheme,
+  themePresets,
+} from "./lib/theme-config";
+export type { ThemeConfig } from "./lib/theme-config";
+
 // Hooks
 export { useIsMobile } from "./hooks/use-mobile";
+export { useTheme } from "./hooks/use-theme";
 
 // Components
 export * from "./components/ui/accordion";
