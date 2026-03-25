@@ -8,6 +8,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  cn,
   Input,
   Label,
   Separator,
@@ -46,11 +47,11 @@ function PresetCard({
   return (
     <button
       onClick={onSelect}
-      className="group relative flex flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors hover:border-ring"
+      className={cn(
+        "group relative flex flex-col gap-2 rounded-xl bg-muted/30 p-3 text-left transition-all ring-1 ring-foreground/10 hover:ring-ring/60",
+        isActive && "ring-2 ring-ring"
+      )}
       data-active={isActive || undefined}
-      style={{
-        borderColor: isActive ? "var(--ring)" : undefined,
-      }}
     >
       {isActive && (
         <div className="absolute top-2 right-2 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
@@ -59,22 +60,22 @@ function PresetCard({
       )}
       <div className="flex gap-1">
         <div
-          className="size-5 rounded-sm border"
+          className="size-5 rounded-sm ring-1 ring-foreground/10"
           style={{ backgroundColor: preset.colors.primary }}
           title="Primary"
         />
         <div
-          className="size-5 rounded-sm border"
+          className="size-5 rounded-sm ring-1 ring-foreground/10"
           style={{ backgroundColor: preset.colors.secondary }}
           title="Secondary"
         />
         <div
-          className="size-5 rounded-sm border"
+          className="size-5 rounded-sm ring-1 ring-foreground/10"
           style={{ backgroundColor: preset.colors.accent }}
           title="Accent"
         />
         <div
-          className="size-5 rounded-sm border"
+          className="size-5 rounded-sm ring-1 ring-foreground/10"
           style={{ backgroundColor: preset.colors.background }}
           title="Background"
         />
@@ -98,7 +99,7 @@ function ColorTokenInput({
   return (
     <div className="flex items-center gap-3">
       <div
-        className="size-8 shrink-0 rounded-md border"
+        className="size-8 shrink-0 rounded-md ring-1 ring-foreground/10"
         style={{ backgroundColor: value }}
       />
       <div className="grid flex-1 gap-1">
@@ -224,15 +225,15 @@ export function ThemeCustomizer() {
           </div>
           <div className="mt-4 flex gap-3">
             <div
-              className="size-12 border bg-primary"
+              className="size-12 bg-primary ring-1 ring-foreground/10"
               style={{ borderRadius: draft.radius }}
             />
             <div
-              className="size-12 border bg-secondary"
+              className="size-12 bg-secondary ring-1 ring-foreground/10"
               style={{ borderRadius: draft.radius }}
             />
             <div
-              className="size-12 border bg-accent"
+              className="size-12 bg-accent ring-1 ring-foreground/10"
               style={{ borderRadius: draft.radius }}
             />
           </div>
