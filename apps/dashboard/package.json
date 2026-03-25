@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@whitelabel/ui": "workspace:*",
+    "lucide-react": "^1.6.0",
     "next": "canary",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
