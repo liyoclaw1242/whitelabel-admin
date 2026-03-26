@@ -38,6 +38,7 @@ import {
   HomeIcon,
   LayoutDashboardIcon,
   LogOutIcon,
+  PaletteIcon,
   SearchIcon,
   SettingsIcon,
   UserIcon,
@@ -49,6 +50,7 @@ const navItems = [
   { title: "Home", href: "/", icon: HomeIcon },
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Users", href: "/users", icon: UsersIcon },
+  { title: "Theme Editor", href: "/theme-editor", icon: PaletteIcon },
   { title: "Settings", href: "/settings", icon: SettingsIcon },
 ];
 
