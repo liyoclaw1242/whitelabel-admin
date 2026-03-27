@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -27,11 +27,17 @@ import {
   CardTitle,
   Checkbox,
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Kbd,
   Label,
@@ -79,7 +85,11 @@ import {
   DicesIcon,
   InfoIcon,
   ItalicIcon,
+  MoreVerticalIcon,
+  PencilIcon,
   RotateCcwIcon,
+  SaveIcon,
+  Trash2Icon,
   UnderlineIcon,
 } from "lucide-react";
 
@@ -164,6 +174,60 @@ const PRESETS: ThemeConfig[] = [
   brandBlueTheme,
   brandGreenTheme,
 ];
+
+// ---------------------------------------------------------------------------
+// Custom themes localStorage helpers
+// ---------------------------------------------------------------------------
+const CUSTOM_THEMES_KEY = "whitelabel-custom-themes";
+const MAX_CUSTOM_THEMES = 20;
+
+function loadCustomThemes(): ThemeConfig[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEMES_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as ThemeConfig[];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomThemes(themes: ThemeConfig[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(themes));
+  } catch {
+    // Storage full or unavailable
+  }
+}
+
+function deleteCustomTheme(
+  themes: ThemeConfig[],
+  name: string
+): ThemeConfig[] {
+  const next = themes.filter((t) => t.name !== name);
+  saveCustomThemes(next);
+  return next;
+}
+
+function renameCustomTheme(
+  themes: ThemeConfig[],
+  oldName: string,
+  newName: string
+): ThemeConfig[] {
+  const next = themes.map((t) =>
+    t.name === oldName ? { ...t, name: newName } : t
+  );
+  saveCustomThemes(next);
+  return next;
+}
+
+function getNextDefaultName(themes: ThemeConfig[]): string {
+  let n = 1;
+  const names = new Set(themes.map((t) => t.name));
+  while (names.has(`My Theme ${n}`)) n++;
+  return `My Theme ${n}`;
+}
 
 // ---------------------------------------------------------------------------
 // Randomize: generate a harmonious light-theme palette from a random hue
@@ -643,6 +707,38 @@ export default function ThemeEditorPage() {
   // Local draft state so we can batch edits before auto-saving
   const [draft, setDraft] = useState<ThemeConfig>(theme);
 
+  // Custom themes state
+  const [customThemes, setCustomThemes] = useState<ThemeConfig[]>([]);
+
+  // Save dialog state
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [overwriteTarget, setOverwriteTarget] = useState<string | null>(null);
+
+  // Rename dialog state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<string | null>(null);
+  const [renameName, setRenameName] = useState("");
+
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+
+  // Toast-like warning message
+  const [warning, setWarning] = useState<string | null>(null);
+  const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showWarning = useCallback((msg: string) => {
+    setWarning(msg);
+    if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
+    warningTimeoutRef.current = setTimeout(() => setWarning(null), 3000);
+  }, []);
+
+  // Load custom themes from localStorage on mount
+  useEffect(() => {
+    setCustomThemes(loadCustomThemes());
+  }, []);
+
   // Whenever draft changes, apply it immediately via setTheme
   const applyDraft = useCallback(
     (next: ThemeConfig) => {
@@ -683,10 +779,220 @@ export default function ThemeEditorPage() {
     [draft, applyDraft]
   );
 
+  // --- Save theme ---
+  const openSaveDialog = useCallback(() => {
+    setSaveName(getNextDefaultName(customThemes));
+    setOverwriteTarget(null);
+    setSaveDialogOpen(true);
+  }, [customThemes]);
+
+  const handleSaveConfirm = useCallback(() => {
+    const trimmed = saveName.trim();
+    if (!trimmed) return;
+
+    const existing = customThemes.find((t) => t.name === trimmed);
+
+    // If name already exists and we haven't confirmed overwrite yet
+    if (existing && overwriteTarget !== trimmed) {
+      setOverwriteTarget(trimmed);
+      return;
+    }
+
+    // Check limit (only for new themes, not overwrites)
+    if (!existing && customThemes.length >= MAX_CUSTOM_THEMES) {
+      showWarning(`Maximum of ${MAX_CUSTOM_THEMES} custom themes reached. Delete one first.`);
+      setSaveDialogOpen(false);
+      return;
+    }
+
+    const themeToSave: ThemeConfig = { ...draft, name: trimmed };
+    let next: ThemeConfig[];
+    if (existing) {
+      next = customThemes.map((t) => (t.name === trimmed ? themeToSave : t));
+    } else {
+      next = [...customThemes, themeToSave];
+    }
+
+    saveCustomThemes(next);
+    setCustomThemes(next);
+    applyDraft(themeToSave);
+    setSaveDialogOpen(false);
+    setOverwriteTarget(null);
+  }, [saveName, customThemes, overwriteTarget, draft, applyDraft, showWarning]);
+
+  // --- Delete theme ---
+  const openDeleteDialog = useCallback((name: string) => {
+    setDeleteTarget(name);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(() => {
+    if (!deleteTarget) return;
+    const next = deleteCustomTheme(customThemes, deleteTarget);
+    setCustomThemes(next);
+    setDeleteDialogOpen(false);
+    setDeleteTarget(null);
+  }, [deleteTarget, customThemes]);
+
+  // --- Rename theme ---
+  const openRenameDialog = useCallback(
+    (name: string) => {
+      setRenameTarget(name);
+      setRenameName(name);
+      setRenameDialogOpen(true);
+    },
+    []
+  );
+
+  const handleRenameConfirm = useCallback(() => {
+    const trimmed = renameName.trim();
+    if (!trimmed || !renameTarget) return;
+    if (
+      trimmed !== renameTarget &&
+      customThemes.some((t) => t.name === trimmed)
+    ) {
+      showWarning("A theme with that name already exists.");
+      return;
+    }
+    const next = renameCustomTheme(customThemes, renameTarget, trimmed);
+    setCustomThemes(next);
+    // If the renamed theme is currently active, update the draft name too
+    if (draft.name === renameTarget) {
+      applyDraft({ ...draft, name: trimmed });
+    }
+    setRenameDialogOpen(false);
+    setRenameTarget(null);
+  }, [renameName, renameTarget, customThemes, draft, applyDraft, showWarning]);
+
+  // --- Switch to custom theme ---
+  const handleCustomThemeSelect = useCallback(
+    (ct: ThemeConfig) => {
+      applyDraft(ct);
+    },
+    [applyDraft]
+  );
+
   const radiusNum = parseFloat(draft.radius) || 0.625;
 
   return (
     <div className="flex h-[calc(100vh-3.5rem-3rem)] gap-6">
+      {/* ---- Warning toast ---- */}
+      {warning && (
+        <div className="fixed top-4 right-4 z-50 rounded-lg border border-destructive bg-destructive-bg px-4 py-2 text-sm text-destructive shadow-md">
+          {warning}
+        </div>
+      )}
+
+      {/* ---- Save Dialog ---- */}
+      <Dialog
+        open={saveDialogOpen}
+        onOpenChange={(open) => {
+          setSaveDialogOpen(open);
+          if (!open) setOverwriteTarget(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Theme</DialogTitle>
+            <DialogDescription>
+              {overwriteTarget
+                ? `A theme named "${overwriteTarget}" already exists. Save again to overwrite it.`
+                : "Give your custom theme a name."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              value={saveName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setSaveName(e.target.value);
+                setOverwriteTarget(null);
+              }}
+              placeholder="Theme name"
+              className="text-sm"
+              onKeyDown={(e: React.KeyboardEvent) => {
+                if (e.key === "Enter") handleSaveConfirm();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" size="sm" />}>
+              Cancel
+            </DialogClose>
+            <Button size="sm" onClick={handleSaveConfirm}>
+              {overwriteTarget ? "Overwrite" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Rename Dialog ---- */}
+      <Dialog
+        open={renameDialogOpen}
+        onOpenChange={(open) => {
+          setRenameDialogOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Theme</DialogTitle>
+            <DialogDescription>
+              Enter a new name for &ldquo;{renameTarget}&rdquo;.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Input
+              value={renameName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setRenameName(e.target.value)
+              }
+              placeholder="New name"
+              className="text-sm"
+              onKeyDown={(e: React.KeyboardEvent) => {
+                if (e.key === "Enter") handleRenameConfirm();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" size="sm" />}>
+              Cancel
+            </DialogClose>
+            <Button size="sm" onClick={handleRenameConfirm}>
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Delete Confirmation Dialog ---- */}
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Theme</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{deleteTarget}&rdquo;? This
+              action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" size="sm" />}>
+              Cancel
+            </DialogClose>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteConfirm}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ---- Left panel: editors ---- */}
       <div className="w-[420px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-8">
         <div>
@@ -732,6 +1038,77 @@ export default function ThemeEditorPage() {
           </div>
         </section>
 
+        {/* My Themes */}
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">My Themes</h2>
+          {customThemes.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              No saved themes yet
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {customThemes.map((ct) => (
+                <div
+                  key={ct.name}
+                  className={`group relative rounded-lg border p-3 text-left text-xs transition-colors hover:border-ring cursor-pointer ${
+                    draft.name === ct.name
+                      ? "border-ring ring-2 ring-ring/30"
+                      : "border-border"
+                  }`}
+                  onClick={() => handleCustomThemeSelect(ct)}
+                >
+                  <div className="flex gap-1 mb-1.5">
+                    {[
+                      ct.colors.primary,
+                      ct.colors.secondary,
+                      ct.colors.accent,
+                      ct.colors.background,
+                    ].map((c, i) => (
+                      <div
+                        key={i}
+                        className="size-4 rounded-full border border-border/50"
+                        style={{ background: c }}
+                      />
+                    ))}
+                  </div>
+                  <span className="font-medium">{ct.name}</span>
+
+                  {/* 3-dot menu */}
+                  <div
+                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <button className="rounded p-0.5 hover:bg-accent">
+                            <MoreVerticalIcon className="size-3.5 text-muted-foreground" />
+                          </button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" sideOffset={4}>
+                        <DropdownMenuItem
+                          onClick={() => openRenameDialog(ct.name)}
+                        >
+                          <PencilIcon className="size-3.5" />
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => openDeleteDialog(ct.name)}
+                        >
+                          <Trash2Icon className="size-3.5" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         {/* Controls */}
         <section className="space-y-4">
           <h2 className="text-sm font-medium">Controls</h2>
@@ -772,6 +1149,15 @@ export default function ThemeEditorPage() {
             >
               <RotateCcwIcon className="size-4 mr-1.5" />
               Reset
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openSaveDialog}
+              className="flex-1"
+            >
+              <SaveIcon className="size-4 mr-1.5" />
+              Save
             </Button>
           </div>
         </section>
