@@ -2,17 +2,68 @@
 
 import { useCallback, useState } from "react";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
   Badge,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
   Button,
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
   Input,
+  Kbd,
   Label,
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverDescription,
+  PopoverTrigger,
+  Progress,
+  RadioGroup,
+  RadioGroupItem,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  Separator,
   Slider,
   Switch,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  Toggle,
+  ToggleGroup,
+  ToggleGroupItem,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useTheme,
 } from "@whitelabel/ui";
 import type { ThemeConfig } from "@whitelabel/ui";
@@ -22,7 +73,15 @@ import {
   brandBlueTheme,
   brandGreenTheme,
 } from "@whitelabel/ui";
-import { DicesIcon, RotateCcwIcon } from "lucide-react";
+import {
+  AlertCircleIcon,
+  BoldIcon,
+  DicesIcon,
+  InfoIcon,
+  ItalicIcon,
+  RotateCcwIcon,
+  UnderlineIcon,
+} from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Token groups: only the ~20 primary tokens users should edit directly
@@ -245,7 +304,8 @@ function TokenEditor({
 // ---------------------------------------------------------------------------
 function LivePreview() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* ---- Existing: Card, Buttons, Badges, Input, Switch ---- */}
       <Card>
         <CardHeader>
           <CardTitle>Sample Card</CardTitle>
@@ -279,6 +339,298 @@ function LivePreview() {
           </div>
         </CardContent>
       </Card>
+
+      {/* ---- Form Components ---- */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">
+          Form Components
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          {/* Checkbox */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Checkbox</Label>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Checkbox defaultChecked />
+                <Label className="text-sm">Checked</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox />
+                <Label className="text-sm">Unchecked</Label>
+              </div>
+            </div>
+          </div>
+
+          {/* Radio Group */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Radio Group</Label>
+            <RadioGroup defaultValue="option-1">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="option-1" />
+                <Label className="text-sm">Option 1</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="option-2" />
+                <Label className="text-sm">Option 2</Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          {/* Select */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Select</Label>
+            <Select defaultValue="apple">
+              <SelectTrigger>
+                <SelectValue placeholder="Pick a fruit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="apple">Apple</SelectItem>
+                <SelectItem value="banana">Banana</SelectItem>
+                <SelectItem value="cherry">Cherry</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Slider (standalone demo) */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Slider</Label>
+            <Slider defaultValue={[40]} max={100} step={1} />
+          </div>
+        </div>
+
+        {/* Textarea (full width) */}
+        <div className="space-y-1.5 max-w-sm">
+          <Label className="text-xs text-muted-foreground">Textarea</Label>
+          <Textarea placeholder="Write something..." defaultValue="Theme preview text" />
+        </div>
+      </section>
+
+      {/* ---- Information Display ---- */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">
+          Information Display
+        </h3>
+
+        <div className="space-y-3">
+          <Alert>
+            <InfoIcon className="size-4" />
+            <AlertTitle>Heads up!</AlertTitle>
+            <AlertDescription>
+              This is a default alert to display general information.
+            </AlertDescription>
+          </Alert>
+
+          <Alert variant="destructive">
+            <AlertCircleIcon className="size-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>
+              Something went wrong. Please try again.
+            </AlertDescription>
+          </Alert>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Avatar */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Avatar</Label>
+            <div className="flex gap-2">
+              <Avatar>
+                <AvatarImage src="https://api.dicebear.com/9.x/initials/svg?seed=AB" alt="AB" />
+                <AvatarFallback>AB</AvatarFallback>
+              </Avatar>
+              <Avatar>
+                <AvatarFallback>CD</AvatarFallback>
+              </Avatar>
+            </div>
+          </div>
+
+          {/* Progress */}
+          <div className="flex-1 min-w-[140px] space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Progress</Label>
+            <Progress value={65} />
+          </div>
+
+          {/* Kbd */}
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Kbd</Label>
+            <div className="flex items-center gap-1">
+              <Kbd>⌘</Kbd>
+              <Kbd>K</Kbd>
+            </div>
+          </div>
+        </div>
+
+        {/* Separator */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Separator</Label>
+          <Separator />
+        </div>
+      </section>
+
+      {/* ---- Navigation ---- */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">
+          Navigation
+        </h3>
+
+        {/* Tabs */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Tabs</Label>
+          <Tabs defaultValue="tab-1">
+            <TabsList>
+              <TabsTrigger value="tab-1">Account</TabsTrigger>
+              <TabsTrigger value="tab-2">Settings</TabsTrigger>
+              <TabsTrigger value="tab-3">Billing</TabsTrigger>
+            </TabsList>
+            <TabsContent value="tab-1">
+              <p className="text-sm text-muted-foreground p-2">
+                Manage your account preferences here.
+              </p>
+            </TabsContent>
+            <TabsContent value="tab-2">
+              <p className="text-sm text-muted-foreground p-2">
+                Configure your application settings.
+              </p>
+            </TabsContent>
+            <TabsContent value="tab-3">
+              <p className="text-sm text-muted-foreground p-2">
+                View your billing and subscription details.
+              </p>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Breadcrumb</Label>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="#">Home</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink href="#">Settings</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Theme</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+      </section>
+
+      {/* ---- Overlay (trigger buttons only) ---- */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">
+          Overlay
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {/* Dialog trigger */}
+          <Dialog>
+            <DialogTrigger render={<Button variant="outline" size="sm" />}>
+              Open Dialog
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Dialog Title</DialogTitle>
+                <DialogDescription>
+                  This is a sample dialog to preview theme styles.
+                </DialogDescription>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Dialog body content goes here.
+              </p>
+            </DialogContent>
+          </Dialog>
+
+          {/* Popover trigger */}
+          <Popover>
+            <PopoverTrigger render={<Button variant="outline" size="sm" />}>
+              Open Popover
+            </PopoverTrigger>
+            <PopoverContent>
+              <PopoverHeader>
+                <PopoverTitle>Popover Title</PopoverTitle>
+                <PopoverDescription>
+                  A small overlay for extra info.
+                </PopoverDescription>
+              </PopoverHeader>
+            </PopoverContent>
+          </Popover>
+
+          {/* Tooltip hover demo */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger render={<Button variant="outline" size="sm" />}>
+                Hover for Tooltip
+              </TooltipTrigger>
+              <TooltipContent>
+                Tooltip content <Kbd>⌘T</Kbd>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </section>
+
+      {/* ---- Other ---- */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">
+          Other
+        </h3>
+
+        {/* Accordion */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Accordion</Label>
+          <Accordion>
+            <AccordionItem value="item-1">
+              <AccordionTrigger>What is theming?</AccordionTrigger>
+              <AccordionContent>
+                Theming lets you customise colors, spacing, and typography to
+                match your brand.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-2">
+              <AccordionTrigger>Can I export my theme?</AccordionTrigger>
+              <AccordionContent>
+                Yes — themes can be exported as JSON and shared across projects.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-3">
+              <AccordionTrigger>Are dark themes supported?</AccordionTrigger>
+              <AccordionContent>
+                Absolutely. Switch between light and dark presets above.
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+
+        {/* Toggle & Toggle Group */}
+        <div className="flex flex-wrap items-end gap-6">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Toggle</Label>
+            <Toggle variant="outline" aria-label="Toggle bold">
+              <BoldIcon className="size-4" />
+            </Toggle>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Toggle Group</Label>
+            <ToggleGroup variant="outline" defaultValue={["bold"]}>
+              <ToggleGroupItem value="bold" aria-label="Bold">
+                <BoldIcon className="size-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="italic" aria-label="Italic">
+                <ItalicIcon className="size-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="underline" aria-label="Underline">
+                <UnderlineIcon className="size-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
