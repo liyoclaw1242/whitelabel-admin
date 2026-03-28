@@ -346,7 +346,7 @@ function TokenEditor({
   return (
     <div className="flex items-center gap-3">
       <div
-        className="size-8 shrink-0 rounded-md border border-border shadow-sm"
+        className="size-8 shrink-0 rounded-md ring-1 ring-foreground/10"
         style={{ background: value }}
       />
       <div className="flex-1 space-y-1">
@@ -1066,7 +1066,7 @@ export default function ThemeEditorPage() {
   );
 
   const previewContent = (
-    <div className="overflow-y-auto rounded-xl border border-border bg-background p-4 sm:p-6">
+    <div className="overflow-y-auto rounded-xl bg-background p-4 ring-1 ring-foreground/10 sm:p-6">
       <h2 className="text-sm font-medium text-muted-foreground mb-4">
         Live Preview
       </h2>
