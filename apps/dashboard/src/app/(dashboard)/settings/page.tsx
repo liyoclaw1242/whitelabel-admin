@@ -21,10 +21,10 @@ export default function SettingsPage() {
         </p>
       </div>
       <Tabs defaultValue="appearance">
-        <TabsList className="gap-1 p-1">
-          <TabsTrigger value="appearance" className="px-3">Appearance</TabsTrigger>
-          <TabsTrigger value="account" className="px-3">Account</TabsTrigger>
-          <TabsTrigger value="notifications" className="px-3">Notifications</TabsTrigger>
+        <TabsList className="gap-1 p-1 w-full sm:w-auto overflow-x-auto">
+          <TabsTrigger value="appearance" className="px-3 flex-1 sm:flex-initial">Appearance</TabsTrigger>
+          <TabsTrigger value="account" className="px-3 flex-1 sm:flex-initial">Account</TabsTrigger>
+          <TabsTrigger value="notifications" className="px-3 flex-1 sm:flex-initial">Notifications</TabsTrigger>
         </TabsList>
         <TabsContent value="appearance" className="mt-6">
           <ThemeCustomizer />

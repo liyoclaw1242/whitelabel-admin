@@ -409,7 +409,7 @@ function LivePreview() {
         <h3 className="text-sm font-semibold text-muted-foreground">
           Form Components
         </h3>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Checkbox */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Checkbox</Label>
@@ -707,6 +707,9 @@ export default function ThemeEditorPage() {
   // Local draft state so we can batch edits before auto-saving
   const [draft, setDraft] = useState<ThemeConfig>(theme);
 
+  // Mobile/tablet: tab-based view (editor vs preview)
+  const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
+
   // Custom themes state
   const [customThemes, setCustomThemes] = useState<ThemeConfig[]>([]);
 
@@ -874,8 +877,205 @@ export default function ThemeEditorPage() {
 
   const radiusNum = parseFloat(draft.radius) || 0.625;
 
+  const editorContent = (
+    <div className="space-y-6 pb-8">
+      <div className="lg:hidden">
+        <h1 className="text-xl font-semibold">Theme Editor</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Customize your dashboard theme in real time.
+        </p>
+      </div>
+
+      {/* Presets */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium">Presets</h2>
+        <div className="grid grid-cols-2 gap-2">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.name}
+              onClick={() => handlePreset(preset)}
+              className={`rounded-lg border p-3 text-left text-xs transition-colors hover:border-ring ${
+                draft.name === preset.name
+                  ? "border-ring ring-2 ring-ring/30"
+                  : "border-border"
+              }`}
+            >
+              <div className="flex gap-1 mb-1.5">
+                {[
+                  preset.colors.primary,
+                  preset.colors.secondary,
+                  preset.colors.accent,
+                  preset.colors.background,
+                ].map((c, i) => (
+                  <div
+                    key={i}
+                    className="size-4 rounded-full border border-border/50"
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
+              <span className="font-medium capitalize">
+                {preset.name.replace(/-/g, " ")}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* My Themes */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium">My Themes</h2>
+        {customThemes.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No saved themes yet
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {customThemes.map((ct) => (
+              <div
+                key={ct.name}
+                className={`group relative rounded-lg border p-3 text-left text-xs transition-colors hover:border-ring cursor-pointer ${
+                  draft.name === ct.name
+                    ? "border-ring ring-2 ring-ring/30"
+                    : "border-border"
+                }`}
+                onClick={() => handleCustomThemeSelect(ct)}
+              >
+                <div className="flex gap-1 mb-1.5">
+                  {[
+                    ct.colors.primary,
+                    ct.colors.secondary,
+                    ct.colors.accent,
+                    ct.colors.background,
+                  ].map((c, i) => (
+                    <div
+                      key={i}
+                      className="size-4 rounded-full border border-border/50"
+                      style={{ background: c }}
+                    />
+                  ))}
+                </div>
+                <span className="font-medium">{ct.name}</span>
+
+                {/* 3-dot menu */}
+                <div
+                  className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <button className="rounded p-0.5 hover:bg-accent">
+                          <MoreVerticalIcon className="size-3.5 text-muted-foreground" />
+                        </button>
+                      }
+                    />
+                    <DropdownMenuContent align="end" sideOffset={4}>
+                      <DropdownMenuItem
+                        onClick={() => openRenameDialog(ct.name)}
+                      >
+                        <PencilIcon className="size-3.5" />
+                        Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => openDeleteDialog(ct.name)}
+                      >
+                        <Trash2Icon className="size-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Controls */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-medium">Controls</h2>
+
+        {/* Radius */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs">Border Radius</Label>
+            <span className="text-xs text-muted-foreground font-mono">
+              {radiusNum.toFixed(3)}rem
+            </span>
+          </div>
+          <Slider
+            value={[radiusNum]}
+            min={0}
+            max={1.5}
+            step={0.025}
+            onValueChange={handleRadiusChange}
+          />
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRandomize}
+            className="flex-1"
+          >
+            <DicesIcon className="size-4 mr-1.5" />
+            Randomize
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+            className="flex-1"
+          >
+            <RotateCcwIcon className="size-4 mr-1.5" />
+            Reset
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={openSaveDialog}
+            className="flex-1"
+          >
+            <SaveIcon className="size-4 mr-1.5" />
+            Save
+          </Button>
+        </div>
+      </section>
+
+      {/* Token groups */}
+      {TOKEN_GROUPS.map((group) => (
+        <section key={group.label} className="space-y-3">
+          <h2 className="text-sm font-medium">{group.label}</h2>
+          <div className="space-y-2">
+            {group.tokens.map((t) => (
+              <TokenEditor
+                key={t.key}
+                label={t.label}
+                value={draft.colors[t.key]}
+                onChange={(v) => updateColor(t.key, v)}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+
+  const previewContent = (
+    <div className="overflow-y-auto rounded-xl border border-border bg-background p-4 sm:p-6">
+      <h2 className="text-sm font-medium text-muted-foreground mb-4">
+        Live Preview
+      </h2>
+      <LivePreview />
+    </div>
+  );
+
   return (
-    <div className="flex h-[calc(100vh-3.5rem-3rem)] gap-6">
+    <div className="h-[calc(100vh-3.5rem-3rem)]">
       {/* ---- Warning toast ---- */}
       {warning && (
         <div className="fixed top-4 right-4 z-50 rounded-lg border border-destructive bg-destructive-bg px-4 py-2 text-sm text-destructive shadow-md">
@@ -993,199 +1193,52 @@ export default function ThemeEditorPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ---- Left panel: editors ---- */}
-      <div className="w-[420px] shrink-0 overflow-y-auto pr-2 space-y-6 pb-8">
-        <div>
-          <h1 className="text-xl font-semibold">Theme Editor</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Customize your dashboard theme in real time.
-          </p>
+      {/* ---- Mobile/tablet: tab toggle layout (< lg) ---- */}
+      <div className="flex h-full flex-col lg:hidden">
+        <div className="flex shrink-0 gap-1 border-b border-border pb-3 mb-4">
+          <button
+            onClick={() => setMobileTab("editor")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              mobileTab === "editor"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Editor
+          </button>
+          <button
+            onClick={() => setMobileTab("preview")}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              mobileTab === "preview"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Preview
+          </button>
         </div>
-
-        {/* Presets */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">Presets</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                onClick={() => handlePreset(preset)}
-                className={`rounded-lg border p-3 text-left text-xs transition-colors hover:border-ring ${
-                  draft.name === preset.name
-                    ? "border-ring ring-2 ring-ring/30"
-                    : "border-border"
-                }`}
-              >
-                <div className="flex gap-1 mb-1.5">
-                  {[
-                    preset.colors.primary,
-                    preset.colors.secondary,
-                    preset.colors.accent,
-                    preset.colors.background,
-                  ].map((c, i) => (
-                    <div
-                      key={i}
-                      className="size-4 rounded-full border border-border/50"
-                      style={{ background: c }}
-                    />
-                  ))}
-                </div>
-                <span className="font-medium capitalize">
-                  {preset.name.replace(/-/g, " ")}
-                </span>
-              </button>
-            ))}
-          </div>
-        </section>
-
-        {/* My Themes */}
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">My Themes</h2>
-          {customThemes.length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              No saved themes yet
-            </p>
-          ) : (
-            <div className="grid grid-cols-2 gap-2">
-              {customThemes.map((ct) => (
-                <div
-                  key={ct.name}
-                  className={`group relative rounded-lg border p-3 text-left text-xs transition-colors hover:border-ring cursor-pointer ${
-                    draft.name === ct.name
-                      ? "border-ring ring-2 ring-ring/30"
-                      : "border-border"
-                  }`}
-                  onClick={() => handleCustomThemeSelect(ct)}
-                >
-                  <div className="flex gap-1 mb-1.5">
-                    {[
-                      ct.colors.primary,
-                      ct.colors.secondary,
-                      ct.colors.accent,
-                      ct.colors.background,
-                    ].map((c, i) => (
-                      <div
-                        key={i}
-                        className="size-4 rounded-full border border-border/50"
-                        style={{ background: c }}
-                      />
-                    ))}
-                  </div>
-                  <span className="font-medium">{ct.name}</span>
-
-                  {/* 3-dot menu */}
-                  <div
-                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <button className="rounded p-0.5 hover:bg-accent">
-                            <MoreVerticalIcon className="size-3.5 text-muted-foreground" />
-                          </button>
-                        }
-                      />
-                      <DropdownMenuContent align="end" sideOffset={4}>
-                        <DropdownMenuItem
-                          onClick={() => openRenameDialog(ct.name)}
-                        >
-                          <PencilIcon className="size-3.5" />
-                          Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => openDeleteDialog(ct.name)}
-                        >
-                          <Trash2Icon className="size-3.5" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Controls */}
-        <section className="space-y-4">
-          <h2 className="text-sm font-medium">Controls</h2>
-
-          {/* Radius */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs">Border Radius</Label>
-              <span className="text-xs text-muted-foreground font-mono">
-                {radiusNum.toFixed(3)}rem
-              </span>
-            </div>
-            <Slider
-              value={[radiusNum]}
-              min={0}
-              max={1.5}
-              step={0.025}
-              onValueChange={handleRadiusChange}
-            />
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRandomize}
-              className="flex-1"
-            >
-              <DicesIcon className="size-4 mr-1.5" />
-              Randomize
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReset}
-              className="flex-1"
-            >
-              <RotateCcwIcon className="size-4 mr-1.5" />
-              Reset
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openSaveDialog}
-              className="flex-1"
-            >
-              <SaveIcon className="size-4 mr-1.5" />
-              Save
-            </Button>
-          </div>
-        </section>
-
-        {/* Token groups */}
-        {TOKEN_GROUPS.map((group) => (
-          <section key={group.label} className="space-y-3">
-            <h2 className="text-sm font-medium">{group.label}</h2>
-            <div className="space-y-2">
-              {group.tokens.map((t) => (
-                <TokenEditor
-                  key={t.key}
-                  label={t.label}
-                  value={draft.colors[t.key]}
-                  onChange={(v) => updateColor(t.key, v)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+        <div className="flex-1 overflow-y-auto">
+          {mobileTab === "editor" ? editorContent : previewContent}
+        </div>
       </div>
 
-      {/* ---- Right panel: live preview ---- */}
-      <div className="flex-1 overflow-y-auto rounded-xl border border-border bg-background p-6">
-        <h2 className="text-sm font-medium text-muted-foreground mb-4">
-          Live Preview
-        </h2>
-        <LivePreview />
+      {/* ---- Desktop: side-by-side layout (>= lg) ---- */}
+      <div className="hidden h-full gap-6 lg:flex">
+        {/* Left panel: editors */}
+        <div className="w-[420px] shrink-0 overflow-y-auto pr-2">
+          <div className="mb-6">
+            <h1 className="text-xl font-semibold">Theme Editor</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Customize your dashboard theme in real time.
+            </p>
+          </div>
+          {editorContent}
+        </div>
+
+        {/* Right panel: live preview */}
+        <div className="min-w-[300px] flex-1">
+          {previewContent}
+        </div>
       </div>
     </div>
   );
