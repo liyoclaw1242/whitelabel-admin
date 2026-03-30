@@ -63,6 +63,13 @@ export interface ThemeConfig {
     fontMono?: string;
     letterSpacing?: string;
   };
+  adjustments?: {
+    hueShift?: number;
+    saturationMultiplier?: number;
+    lightnessMultiplier?: number;
+    spacingMultiplier?: number;
+    shadowIntensity?: "none" | "subtle" | "medium" | "prominent";
+  };
 }
 
 export const defaultLightTheme: ThemeConfig = {
@@ -401,6 +408,19 @@ export function applyThemeToDOM(theme: ThemeConfig): void {
     if (theme.typography.letterSpacing) {
       root.style.setProperty("--tracking-body", theme.typography.letterSpacing);
     }
+  }
+  if (theme.adjustments) {
+    const spacing = theme.adjustments.spacingMultiplier ?? 1;
+    root.style.setProperty("--spacing-multiplier", String(spacing));
+
+    const shadowMap: Record<string, string> = {
+      none: "none",
+      subtle: "0 1px 2px 0 rgb(0 0 0 / 0.03)",
+      medium: "0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08)",
+      prominent: "0 4px 6px -1px rgb(0 0 0 / 0.12), 0 2px 4px -2px rgb(0 0 0 / 0.08)",
+    };
+    const shadow = theme.adjustments.shadowIntensity ?? "subtle";
+    root.style.setProperty("--shadow-theme", shadowMap[shadow] || shadowMap.subtle);
   }
   root.setAttribute("data-theme", theme.name);
 }
