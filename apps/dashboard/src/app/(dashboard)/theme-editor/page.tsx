@@ -710,6 +710,9 @@ export default function ThemeEditorPage() {
   // Mobile/tablet: tab-based view (editor vs preview)
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
 
+  // Editor sub-tab: colors vs typography
+  const [editorTab, setEditorTab] = useState<"colors" | "typography">("colors");
+
   // Custom themes state
   const [customThemes, setCustomThemes] = useState<ThemeConfig[]>([]);
 
@@ -780,6 +783,24 @@ export default function ThemeEditorPage() {
       applyDraft({ ...draft, radius: `${v}rem` });
     },
     [draft, applyDraft]
+  );
+
+  const updateTypography = useCallback(
+    (key: keyof NonNullable<ThemeConfig["typography"]>, value: string) => {
+      applyDraft({
+        ...draft,
+        typography: { ...draft.typography, [key]: value },
+      });
+    },
+    [draft, applyDraft]
+  );
+
+  const handleLetterSpacingChange = useCallback(
+    (val: number | readonly number[]) => {
+      const v = Array.isArray(val) ? val[0] : val;
+      updateTypography("letterSpacing", `${v}em`);
+    },
+    [updateTypography]
   );
 
   // --- Save theme ---
@@ -1046,22 +1067,135 @@ export default function ThemeEditorPage() {
         </div>
       </section>
 
-      {/* Token groups */}
-      {TOKEN_GROUPS.map((group) => (
-        <section key={group.label} className="space-y-3">
-          <h2 className="text-sm font-medium">{group.label}</h2>
-          <div className="space-y-2">
-            {group.tokens.map((t) => (
-              <TokenEditor
-                key={t.key}
-                label={t.label}
-                value={draft.colors[t.key]}
-                onChange={(v) => updateColor(t.key, v)}
+      {/* Editor sub-tabs: Colors / Typography */}
+      <div className="flex gap-1 border-b border-border pb-1">
+        <button
+          onClick={() => setEditorTab("colors")}
+          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+            editorTab === "colors"
+              ? "bg-secondary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Colors
+        </button>
+        <button
+          onClick={() => setEditorTab("typography")}
+          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+            editorTab === "typography"
+              ? "bg-secondary text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Typography
+        </button>
+      </div>
+
+      {editorTab === "colors" && (
+        <>
+          {/* Token groups */}
+          {TOKEN_GROUPS.map((group) => (
+            <section key={group.label} className="space-y-3">
+              <h2 className="text-sm font-medium">{group.label}</h2>
+              <div className="space-y-2">
+                {group.tokens.map((t) => (
+                  <TokenEditor
+                    key={t.key}
+                    label={t.label}
+                    value={draft.colors[t.key]}
+                    onChange={(v) => updateColor(t.key, v)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </>
+      )}
+
+      {editorTab === "typography" && (
+        <>
+          {/* Font Family: Sans */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium">Sans-Serif Font</h2>
+            <Select
+              value={draft.typography?.fontSans || ""}
+              onValueChange={(v) => v && updateTypography("fontSans", v)}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="Default (Geist)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Geist, sans-serif">Geist</SelectItem>
+                <SelectItem value="Inter, sans-serif">Inter</SelectItem>
+                <SelectItem value="system-ui, sans-serif">System UI</SelectItem>
+                <SelectItem value="'Helvetica Neue', Helvetica, sans-serif">Helvetica Neue</SelectItem>
+                <SelectItem value="'Segoe UI', sans-serif">Segoe UI</SelectItem>
+                <SelectItem value="Roboto, sans-serif">Roboto</SelectItem>
+              </SelectContent>
+            </Select>
+          </section>
+
+          {/* Font Family: Serif */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium">Serif Font</h2>
+            <Select
+              value={draft.typography?.fontSerif || ""}
+              onValueChange={(v) => v && updateTypography("fontSerif", v)}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="Default (serif)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Georgia, serif">Georgia</SelectItem>
+                <SelectItem value="'Times New Roman', serif">Times New Roman</SelectItem>
+                <SelectItem value="'Palatino Linotype', serif">Palatino</SelectItem>
+                <SelectItem value="Cambria, serif">Cambria</SelectItem>
+              </SelectContent>
+            </Select>
+          </section>
+
+          {/* Font Family: Mono */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium">Monospace Font</h2>
+            <Select
+              value={draft.typography?.fontMono || ""}
+              onValueChange={(v) => v && updateTypography("fontMono", v)}
+            >
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="Default (monospace)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="'Geist Mono', monospace">Geist Mono</SelectItem>
+                <SelectItem value="'JetBrains Mono', monospace">JetBrains Mono</SelectItem>
+                <SelectItem value="'Fira Code', monospace">Fira Code</SelectItem>
+                <SelectItem value="'SF Mono', monospace">SF Mono</SelectItem>
+                <SelectItem value="Menlo, monospace">Menlo</SelectItem>
+                <SelectItem value="'Courier New', monospace">Courier New</SelectItem>
+              </SelectContent>
+            </Select>
+          </section>
+
+          {/* Letter Spacing */}
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium">Letter Spacing</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Tracking</Label>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {(parseFloat(draft.typography?.letterSpacing || "0") || 0).toFixed(3)}em
+                </span>
+              </div>
+              <Slider
+                value={[parseFloat(draft.typography?.letterSpacing || "0") || 0]}
+                min={0}
+                max={0.2}
+                step={0.005}
+                onValueChange={handleLetterSpacingChange}
               />
-            ))}
-          </div>
-        </section>
-      ))}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 

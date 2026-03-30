@@ -57,6 +57,12 @@ export interface ThemeConfig {
   };
   radius: string;
   fontFamily?: string;
+  typography?: {
+    fontSans?: string;
+    fontSerif?: string;
+    fontMono?: string;
+    letterSpacing?: string;
+  };
 }
 
 export const defaultLightTheme: ThemeConfig = {
@@ -381,6 +387,20 @@ export function applyThemeToDOM(theme: ThemeConfig): void {
   root.style.setProperty("--radius", theme.radius);
   if (theme.fontFamily) {
     root.style.setProperty("--font-sans", theme.fontFamily);
+  }
+  if (theme.typography) {
+    if (theme.typography.fontSans) {
+      root.style.setProperty("--font-sans", theme.typography.fontSans);
+    }
+    if (theme.typography.fontSerif) {
+      root.style.setProperty("--font-serif", theme.typography.fontSerif);
+    }
+    if (theme.typography.fontMono) {
+      root.style.setProperty("--font-mono", theme.typography.fontMono);
+    }
+    if (theme.typography.letterSpacing) {
+      root.style.setProperty("--tracking-body", theme.typography.letterSpacing);
+    }
   }
   root.setAttribute("data-theme", theme.name);
 }
