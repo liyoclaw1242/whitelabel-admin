@@ -1068,23 +1068,6 @@ export default function ThemeEditorPage() {
       <section className="space-y-4">
         <h2 className="text-sm font-medium">Controls</h2>
 
-        {/* Radius */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs">Border Radius</Label>
-            <span className="text-xs text-muted-foreground font-mono">
-              {radiusNum.toFixed(3)}rem
-            </span>
-          </div>
-          <Slider
-            value={[radiusNum]}
-            min={0}
-            max={1.5}
-            step={0.025}
-            onValueChange={handleRadiusChange}
-          />
-        </div>
-
         {/* Action buttons */}
         <div className="flex gap-2">
           <Button
