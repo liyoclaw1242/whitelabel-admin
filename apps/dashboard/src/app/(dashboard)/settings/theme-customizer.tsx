@@ -14,12 +14,12 @@ import {
   Separator,
   Slider,
   useTheme,
-  defaultLightTheme,
+  defaultTheme,
 } from "@whitelabel/ui";
-import type { ThemeConfig } from "@whitelabel/ui";
+import type { ThemeConfig, ColorTokens } from "@whitelabel/ui";
 import { CheckIcon, RotateCcwIcon } from "lucide-react";
 
-const colorTokenLabels: { key: keyof ThemeConfig["colors"]; label: string }[] = [
+const colorTokenLabels: { key: keyof ColorTokens; label: string }[] = [
   { key: "background", label: "Background" },
   { key: "foreground", label: "Foreground" },
   { key: "primary", label: "Primary" },
@@ -61,22 +61,22 @@ function PresetCard({
       <div className="flex gap-1">
         <div
           className="size-5 rounded-sm ring-1 ring-foreground/10"
-          style={{ backgroundColor: preset.colors.primary }}
+          style={{ backgroundColor: preset.light.primary }}
           title="Primary"
         />
         <div
           className="size-5 rounded-sm ring-1 ring-foreground/10"
-          style={{ backgroundColor: preset.colors.secondary }}
+          style={{ backgroundColor: preset.light.secondary }}
           title="Secondary"
         />
         <div
           className="size-5 rounded-sm ring-1 ring-foreground/10"
-          style={{ backgroundColor: preset.colors.accent }}
+          style={{ backgroundColor: preset.light.accent }}
           title="Accent"
         />
         <div
           className="size-5 rounded-sm ring-1 ring-foreground/10"
-          style={{ backgroundColor: preset.colors.background }}
+          style={{ backgroundColor: preset.light.background }}
           title="Background"
         />
       </div>
@@ -115,20 +115,23 @@ function ColorTokenInput({
 }
 
 export function ThemeCustomizer() {
-  const { theme, setTheme, presets } = useTheme();
+  const { theme, setTheme, presets, colorMode } = useTheme();
   const [draft, setDraft] = useState<ThemeConfig>(theme);
 
+  const activeColors = colorMode === "dark" ? draft.dark : draft.light;
+
   const updateColor = useCallback(
-    (key: keyof ThemeConfig["colors"], value: string) => {
-      const next = {
+    (key: keyof ColorTokens, value: string) => {
+      const modeKey = colorMode === "dark" ? "dark" : "light";
+      const next: ThemeConfig = {
         ...draft,
         name: "custom",
-        colors: { ...draft.colors, [key]: value },
+        [modeKey]: { ...draft[modeKey], [key]: value },
       };
       setDraft(next);
-      setTheme(next); // live preview
+      setTheme(next);
     },
-    [draft, setTheme],
+    [draft, setTheme, colorMode],
   );
 
   const updateRadius = useCallback(
@@ -149,8 +152,8 @@ export function ThemeCustomizer() {
   );
 
   const resetToDefault = useCallback(() => {
-    setDraft(defaultLightTheme);
-    setTheme(defaultLightTheme);
+    setDraft(defaultTheme);
+    setTheme(defaultTheme);
   }, [setTheme]);
 
   const radiusValue = parseFloat(draft.radius) || 0.625;
@@ -182,9 +185,9 @@ export function ThemeCustomizer() {
       {/* Color Tokens */}
       <Card>
         <CardHeader>
-          <CardTitle>Color Tokens</CardTitle>
+          <CardTitle>Color Tokens ({colorMode === "dark" ? "Dark" : "Light"})</CardTitle>
           <CardDescription>
-            Fine-tune individual color values. Changes apply in real-time.
+            Fine-tune individual color values for the current mode. Use the header toggle to switch modes.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -193,7 +196,7 @@ export function ThemeCustomizer() {
               <ColorTokenInput
                 key={key}
                 label={label}
-                value={draft.colors[key]}
+                value={activeColors[key]}
                 onChange={(v) => updateColor(key, v)}
               />
             ))}
