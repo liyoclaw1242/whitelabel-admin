@@ -72,7 +72,8 @@ import {
   TooltipTrigger,
   useTheme,
 } from "@whitelabel/ui";
-import type { ThemeConfig, ColorTokens } from "@whitelabel/ui";
+import type { ThemeConfig, ColorTokens, ThemePreset } from "@whitelabel/ui";
+import { tweakcnPresets } from "@whitelabel/ui";
 import {
   defaultTheme,
   defaultLightTheme,
@@ -170,15 +171,7 @@ const TOKEN_GROUPS: {
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Presets
-// ---------------------------------------------------------------------------
-const PRESETS: ThemeConfig[] = [
-  defaultLightTheme,
-  defaultDarkTheme,
-  brandBlueTheme,
-  brandGreenTheme,
-];
+// Presets are now imported from tweakcnPresets via @whitelabel/ui
 
 // ---------------------------------------------------------------------------
 // Custom themes localStorage helpers
@@ -818,6 +811,10 @@ export default function ThemeEditorPage() {
   // Editor sub-tab: colors vs typography vs other
   const [editorTab, setEditorTab] = useState<"colors" | "typography" | "other">("colors");
 
+  // Preset filter state
+  const [presetSearch, setPresetSearch] = useState("");
+  const [presetCategory, setPresetCategory] = useState("all");
+
   // Custom themes state
   const [customThemes, setCustomThemes] = useState<ThemeConfig[]>([]);
 
@@ -870,6 +867,14 @@ export default function ThemeEditorPage() {
   const handlePreset = useCallback(
     (preset: ThemeConfig) => {
       applyDraft(preset);
+    },
+    [applyDraft]
+  );
+
+  const handleTweakcnPreset = useCallback(
+    (preset: ThemePreset) => {
+      const { category, source, ...themeConfig } = preset;
+      applyDraft(themeConfig as ThemeConfig);
     },
     [applyDraft]
   );
@@ -1033,36 +1038,77 @@ export default function ThemeEditorPage() {
       {/* Presets */}
       <section className="space-y-3">
         <h2 className="text-sm font-medium">Presets</h2>
-        <div className="grid grid-cols-2 gap-2">
-          {PRESETS.map((preset) => (
+
+        {/* Search */}
+        <Input
+          type="search"
+          placeholder="Search presets..."
+          value={presetSearch}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPresetSearch(e.target.value)}
+          className="h-7 text-xs"
+        />
+
+        {/* Category filter */}
+        <div className="flex flex-wrap gap-1">
+          {["all", "minimal", "brand", "colorful", "dark", "nature", "warm", "creative", "elegant"].map((cat) => (
             <button
-              key={preset.name}
-              onClick={() => handlePreset(preset)}
-              className={`rounded-lg border p-3 text-left text-xs transition-colors hover:border-ring ${
-                draft.name === preset.name
-                  ? "border-ring ring-2 ring-ring/30"
-                  : "border-border"
+              key={cat}
+              onClick={() => setPresetCategory(cat)}
+              className={`rounded-md px-2 py-0.5 text-[10px] font-medium capitalize transition-colors ${
+                presetCategory === cat
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
               }`}
             >
-              <div className="flex gap-1 mb-1.5">
-                {[
-                  preset.light.primary,
-                  preset.light.secondary,
-                  preset.light.accent,
-                  preset.light.background,
-                ].map((c, i) => (
-                  <div
-                    key={i}
-                    className="size-4 rounded-full border border-border/50"
-                    style={{ background: c }}
-                  />
-                ))}
-              </div>
-              <span className="font-medium capitalize">
-                {preset.name.replace(/-/g, " ")}
-              </span>
+              {cat}
             </button>
           ))}
+        </div>
+
+        {/* Preset grid */}
+        <div className="grid grid-cols-2 gap-2 max-h-[320px] overflow-y-auto pr-1">
+          {tweakcnPresets
+            .filter((p) => {
+              const matchesSearch = !presetSearch || p.name.toLowerCase().includes(presetSearch.toLowerCase());
+              const matchesCategory = presetCategory === "all" || p.category.includes(presetCategory);
+              return matchesSearch && matchesCategory;
+            })
+            .map((preset) => (
+              <button
+                key={preset.name}
+                onClick={() => handleTweakcnPreset(preset)}
+                className={`rounded-lg border p-2.5 text-left text-xs transition-colors hover:border-ring ${
+                  draft.name === preset.name
+                    ? "border-ring ring-2 ring-ring/30"
+                    : "border-border"
+                }`}
+              >
+                <div className="flex gap-1 mb-1.5">
+                  {[
+                    preset.light.primary,
+                    preset.light.secondary,
+                    preset.light.accent,
+                    preset.light.background,
+                  ].map((c, i) => (
+                    <div
+                      key={i}
+                      className="size-3.5 rounded-full border border-border/50"
+                      style={{ background: c }}
+                    />
+                  ))}
+                </div>
+                <span className="font-medium capitalize text-[11px] leading-tight block truncate">
+                  {preset.name.replace(/-/g, " ")}
+                </span>
+                <div className="flex gap-1 mt-1">
+                  {preset.category.map((cat) => (
+                    <span key={cat} className="text-[9px] text-muted-foreground capitalize">
+                      {cat}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            ))}
         </div>
       </section>
 
