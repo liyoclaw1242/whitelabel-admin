@@ -66,6 +66,7 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    --spacing: calc(0.25rem * var(--spacing-multiplier, 1));
 }
 
 :root {
@@ -185,6 +186,7 @@
     }
   body {
     @apply bg-background text-foreground;
+    letter-spacing: var(--tracking-body, normal);
     }
   html {
     @apply font-sans;
