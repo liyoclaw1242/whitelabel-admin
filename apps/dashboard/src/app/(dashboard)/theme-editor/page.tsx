@@ -332,6 +332,38 @@ function deriveFullTheme(
 }
 
 // ---------------------------------------------------------------------------
+// Apply hue shift to all oklch color tokens
+// ---------------------------------------------------------------------------
+function applyHueShift(theme: ThemeConfig, hueOffset: number): ThemeConfig {
+  const colors = { ...theme.colors };
+  const oklchRe = /oklch\(([^)]+)\)/;
+
+  for (const key of Object.keys(colors) as (keyof typeof colors)[]) {
+    const val = colors[key];
+    if (typeof val !== "string") continue;
+    const match = val.match(oklchRe);
+    if (!match) continue;
+
+    const parts = match[1].trim().split(/\s+/);
+    if (parts.length >= 3) {
+      const hueStr = parts[2].replace(/[^0-9.-]/g, "");
+      const hue = parseFloat(hueStr);
+      if (!isNaN(hue) && hue !== 0) {
+        const newHue = ((hueOffset) % 360 + 360) % 360;
+        parts[2] = parts[2].replace(hueStr, String(Math.round(newHue)));
+        colors[key] = val.replace(match[1], parts.join(" "));
+      }
+    }
+  }
+
+  return {
+    ...theme,
+    colors,
+    adjustments: { ...theme.adjustments, hueShift: hueOffset },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Color swatch + text input for a single token
 // ---------------------------------------------------------------------------
 function TokenEditor({
@@ -710,8 +742,8 @@ export default function ThemeEditorPage() {
   // Mobile/tablet: tab-based view (editor vs preview)
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
 
-  // Editor sub-tab: colors vs typography
-  const [editorTab, setEditorTab] = useState<"colors" | "typography">("colors");
+  // Editor sub-tab: colors vs typography vs other
+  const [editorTab, setEditorTab] = useState<"colors" | "typography" | "other">("colors");
 
   // Custom themes state
   const [customThemes, setCustomThemes] = useState<ThemeConfig[]>([]);
@@ -801,6 +833,24 @@ export default function ThemeEditorPage() {
       updateTypography("letterSpacing", `${v}em`);
     },
     [updateTypography]
+  );
+
+  const updateAdjustment = useCallback(
+    (key: keyof NonNullable<ThemeConfig["adjustments"]>, value: number | string) => {
+      applyDraft({
+        ...draft,
+        adjustments: { ...draft.adjustments, [key]: value },
+      });
+    },
+    [draft, applyDraft]
+  );
+
+  const handleHueShift = useCallback(
+    (hueOffset: number) => {
+      const shifted = applyHueShift(draft, hueOffset);
+      applyDraft(shifted);
+    },
+    [draft, applyDraft]
   );
 
   // --- Save theme ---
@@ -1067,28 +1117,21 @@ export default function ThemeEditorPage() {
         </div>
       </section>
 
-      {/* Editor sub-tabs: Colors / Typography */}
+      {/* Editor sub-tabs: Colors / Typography / Other */}
       <div className="flex gap-1 border-b border-border pb-1">
-        <button
-          onClick={() => setEditorTab("colors")}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            editorTab === "colors"
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Colors
-        </button>
-        <button
-          onClick={() => setEditorTab("typography")}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            editorTab === "typography"
-              ? "bg-secondary text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          Typography
-        </button>
+        {(["colors", "typography", "other"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setEditorTab(tab)}
+            className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+              editorTab === tab
+                ? "bg-secondary text-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
       {editorTab === "colors" && (
@@ -1192,6 +1235,138 @@ export default function ThemeEditorPage() {
                 step={0.005}
                 onValueChange={handleLetterSpacingChange}
               />
+            </div>
+          </section>
+        </>
+      )}
+
+      {editorTab === "other" && (
+        <>
+          {/* HSL Adjustments */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-medium">HSL Adjustments</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Hue Shift</Label>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {draft.adjustments?.hueShift ?? 0}°
+                </span>
+              </div>
+              <Slider
+                value={[draft.adjustments?.hueShift ?? 0]}
+                min={0}
+                max={360}
+                step={1}
+                onValueChange={(val) => {
+                  const v = Array.isArray(val) ? val[0] : val;
+                  handleHueShift(v);
+                }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Quick Hue Presets</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { label: "Red", hue: 27 },
+                  { label: "Orange", hue: 60 },
+                  { label: "Yellow", hue: 95 },
+                  { label: "Green", hue: 155 },
+                  { label: "Teal", hue: 195 },
+                  { label: "Blue", hue: 250 },
+                  { label: "Purple", hue: 290 },
+                  { label: "Pink", hue: 340 },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() => handleHueShift(preset.hue)}
+                    className="flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs hover:border-ring transition-colors"
+                  >
+                    <div
+                      className="size-3 rounded-full border border-border/50"
+                      style={{ background: `oklch(0.6 0.2 ${preset.hue})` }}
+                    />
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* Border Radius */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-medium">Border Radius</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Radius</Label>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {radiusNum.toFixed(3)}rem
+                </span>
+              </div>
+              <Slider
+                value={[radiusNum]}
+                min={0}
+                max={1.5}
+                step={0.025}
+                onValueChange={handleRadiusChange}
+              />
+            </div>
+          </section>
+
+          {/* Spacing */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-medium">Spacing</h2>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Base Spacing Multiplier</Label>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {(draft.adjustments?.spacingMultiplier ?? 1).toFixed(2)}x
+                </span>
+              </div>
+              <Slider
+                value={[draft.adjustments?.spacingMultiplier ?? 1]}
+                min={0.5}
+                max={2}
+                step={0.05}
+                onValueChange={(val) => {
+                  const v = Array.isArray(val) ? val[0] : val;
+                  updateAdjustment("spacingMultiplier", v);
+                }}
+              />
+            </div>
+          </section>
+
+          {/* Shadow */}
+          <section className="space-y-4">
+            <h2 className="text-sm font-medium">Shadow</h2>
+            <div className="space-y-2">
+              <Label className="text-xs">Shadow Intensity</Label>
+              <Select
+                value={draft.adjustments?.shadowIntensity || "subtle"}
+                onValueChange={(v) => v && updateAdjustment("shadowIntensity", v)}
+              >
+                <SelectTrigger className="text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="subtle">Subtle</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="prominent">Prominent</SelectItem>
+                </SelectContent>
+              </Select>
+              <div
+                className="mt-2 rounded-lg bg-card p-4 text-sm text-muted-foreground ring-1 ring-foreground/10"
+                style={{
+                  boxShadow: {
+                    none: "none",
+                    subtle: "0 1px 2px 0 rgb(0 0 0 / 0.03)",
+                    medium: "0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08)",
+                    prominent: "0 4px 6px -1px rgb(0 0 0 / 0.12), 0 2px 4px -2px rgb(0 0 0 / 0.08)",
+                  }[draft.adjustments?.shadowIntensity || "subtle"],
+                }}
+              >
+                Shadow preview
+              </div>
             </div>
           </section>
         </>
