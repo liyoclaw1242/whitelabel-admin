@@ -13,6 +13,8 @@ export {
   themePresets,
 } from "./lib/theme-config";
 export type { ThemeConfig, ColorTokens, ColorMode } from "./lib/theme-config";
+export { tweakcnPresets, tweakcnPresetMap } from "./lib/theme-presets";
+export type { ThemePreset } from "./lib/theme-presets";
 
 // Hooks
 export { useIsMobile } from "./hooks/use-mobile";
