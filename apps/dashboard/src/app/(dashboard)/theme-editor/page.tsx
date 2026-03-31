@@ -86,10 +86,12 @@ import {
   DicesIcon,
   InfoIcon,
   ItalicIcon,
+  MoonIcon,
   MoreVerticalIcon,
   PencilIcon,
   RotateCcwIcon,
   SaveIcon,
+  SunIcon,
   Trash2Icon,
   UnderlineIcon,
 } from "lucide-react";
@@ -806,7 +808,7 @@ function LivePreview() {
 // Main page
 // ---------------------------------------------------------------------------
 export default function ThemeEditorPage() {
-  const { theme, setTheme, presets, colorMode } = useTheme();
+  const { theme, setTheme, presets, colorMode, setColorMode } = useTheme();
   // Local draft state so we can batch edits before auto-saving
   const [draft, setDraft] = useState<ThemeConfig>(theme);
 
@@ -1190,6 +1192,36 @@ export default function ThemeEditorPage() {
 
       {editorTab === "colors" && (
         <>
+          {/* Light/Dark mode toggle */}
+          <div className="flex items-center gap-1 rounded-lg bg-muted p-1">
+            <button
+              onClick={() => setColorMode("light")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                colorMode === "light"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <SunIcon className="size-3.5" />
+              Light
+            </button>
+            <button
+              onClick={() => setColorMode("dark")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                colorMode === "dark"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <MoonIcon className="size-3.5" />
+              Dark
+            </button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Editing <span className="font-medium text-foreground">{colorMode}</span> mode colors
+          </p>
+
           {/* Token groups */}
           {TOKEN_GROUPS.map((group) => (
             <section key={group.label} className="space-y-3">
