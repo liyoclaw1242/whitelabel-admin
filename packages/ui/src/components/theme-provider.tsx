@@ -7,11 +7,14 @@ import {
   useMemo,
   useState,
 } from "react";
-import type { ThemeConfig } from "../lib/theme-config";
+import type { ColorMode, ThemeConfig } from "../lib/theme-config";
 import {
+  applyColorModeToDOM,
   applyThemeToDOM,
-  defaultLightTheme,
+  defaultTheme,
+  loadColorMode,
   loadThemeFromStorage,
+  saveColorMode,
   saveThemeToStorage,
   themePresets,
 } from "../lib/theme-config";
@@ -23,6 +26,12 @@ export interface ThemeContextValue {
   setTheme: (theme: ThemeConfig) => void;
   /** All available theme presets */
   presets: ThemeConfig[];
+  /** Current color mode (light or dark) */
+  colorMode: ColorMode;
+  /** Toggle between light and dark mode */
+  toggleColorMode: () => void;
+  /** Set a specific color mode */
+  setColorMode: (mode: ColorMode) => void;
 }
 
 export const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -37,28 +46,45 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = defaultLightTheme,
+  defaultTheme: defaultThemeProp = defaultTheme,
   extraPresets = [],
 }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<ThemeConfig>(defaultTheme);
-  const [mounted, setMounted] = useState(false);
+  const [theme, setThemeState] = useState<ThemeConfig>(defaultThemeProp);
+  const [colorMode, setColorModeState] = useState<ColorMode>("light");
 
-  // Load persisted theme on mount
+  // Load persisted theme and color mode on mount
   useEffect(() => {
     const stored = loadThemeFromStorage();
+    const mode = loadColorMode();
+    const activeTheme = stored || defaultThemeProp;
+
     if (stored) {
       setThemeState(stored);
-      applyThemeToDOM(stored);
-    } else {
-      applyThemeToDOM(defaultTheme);
     }
-    setMounted(true);
-  }, [defaultTheme]);
+    setColorModeState(mode);
+    applyThemeToDOM(activeTheme);
+    applyColorModeToDOM(mode);
+  }, [defaultThemeProp]);
 
   const setTheme = useCallback((newTheme: ThemeConfig) => {
     setThemeState(newTheme);
     applyThemeToDOM(newTheme);
     saveThemeToStorage(newTheme);
+  }, []);
+
+  const setColorMode = useCallback((mode: ColorMode) => {
+    setColorModeState(mode);
+    applyColorModeToDOM(mode);
+    saveColorMode(mode);
+  }, []);
+
+  const toggleColorMode = useCallback(() => {
+    setColorModeState((prev) => {
+      const next = prev === "light" ? "dark" : "light";
+      applyColorModeToDOM(next);
+      saveColorMode(next);
+      return next;
+    });
   }, []);
 
   const presets = useMemo(
@@ -67,16 +93,12 @@ export function ThemeProvider({
   );
 
   const value = useMemo<ThemeContextValue>(
-    () => ({ theme, setTheme, presets }),
-    [theme, setTheme, presets],
+    () => ({ theme, setTheme, presets, colorMode, toggleColorMode, setColorMode }),
+    [theme, setTheme, presets, colorMode, toggleColorMode, setColorMode],
   );
 
-  // Prevent flash of unstyled content — render children only after mount
-  // so the correct CSS vars are in place. We still render the tree in SSR
-  // (via suppressHydrationWarning on <html>) but skip applying vars there.
   return (
     <ThemeContext.Provider value={value}>
-      {/* Always render children for SSR; CSS vars are applied in useEffect */}
       {children}
     </ThemeContext.Provider>
   );

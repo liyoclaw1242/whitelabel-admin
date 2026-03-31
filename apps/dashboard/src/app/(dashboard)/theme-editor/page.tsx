@@ -72,8 +72,9 @@ import {
   TooltipTrigger,
   useTheme,
 } from "@whitelabel/ui";
-import type { ThemeConfig } from "@whitelabel/ui";
+import type { ThemeConfig, ColorTokens } from "@whitelabel/ui";
 import {
+  defaultTheme,
   defaultLightTheme,
   defaultDarkTheme,
   brandBlueTheme,
@@ -100,7 +101,7 @@ import { DashboardScene } from "./dashboard-scene";
 // ---------------------------------------------------------------------------
 const TOKEN_GROUPS: {
   label: string;
-  tokens: { key: keyof ThemeConfig["colors"]; label: string }[];
+  tokens: { key: keyof ColorTokens; label: string }[];
 }[] = [
   {
     label: "Primary",
@@ -188,7 +189,21 @@ function loadCustomThemes(): ThemeConfig[] {
   try {
     const raw = localStorage.getItem(CUSTOM_THEMES_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as ThemeConfig[];
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    // Migrate legacy themes that have `colors` instead of `light`/`dark`
+    return parsed.map((t) => {
+      if ("light" in t && "dark" in t) return t as unknown as ThemeConfig;
+      const legacy = t as unknown as { name: string; colors: ColorTokens; radius: string; fontFamily?: string; typography?: ThemeConfig["typography"]; adjustments?: ThemeConfig["adjustments"] };
+      return {
+        name: legacy.name,
+        light: legacy.colors,
+        dark: defaultTheme.dark,
+        radius: legacy.radius,
+        fontFamily: legacy.fontFamily,
+        typography: legacy.typography,
+        adjustments: legacy.adjustments,
+      } as ThemeConfig;
+    });
   } catch {
     return [];
   }
@@ -238,7 +253,7 @@ function generateRandomTheme(): ThemeConfig {
   const hue = Math.round(Math.random() * 360);
   const destructiveColor = "oklch(0.577 0.245 27.325)";
 
-  const colors: ThemeConfig["colors"] = {
+  const colors: ColorTokens = {
     background: `oklch(0.985 0.005 ${hue})`,
     foreground: `oklch(0.145 0.02 ${hue})`,
     card: `oklch(0.985 0.005 ${hue})`,
@@ -294,9 +309,49 @@ function generateRandomTheme(): ThemeConfig {
     avatarOverlayBlend: "darken",
   };
 
+  // Generate dark variant by shifting lightness
+  const darkColors: ColorTokens = {
+    ...defaultTheme.dark, // base dark
+    ...Object.fromEntries(
+      Object.entries(colors)
+        .filter(([, v]) => v.includes("oklch"))
+        .map(([k, v]) => [k, v])
+    ),
+  } as ColorTokens;
+  // Darken the dark variant backgrounds
+  darkColors.background = `oklch(0.145 0.01 ${hue})`;
+  darkColors.foreground = `oklch(0.985 0.005 ${hue})`;
+  darkColors.card = `oklch(0.205 0.015 ${hue})`;
+  darkColors.cardForeground = `oklch(0.985 0.005 ${hue})`;
+  darkColors.popover = `oklch(0.205 0.015 ${hue})`;
+  darkColors.popoverForeground = `oklch(0.985 0.005 ${hue})`;
+  darkColors.primary = `oklch(0.6 0.18 ${hue})`;
+  darkColors.secondary = `oklch(0.269 0.02 ${hue})`;
+  darkColors.secondaryForeground = `oklch(0.985 0.005 ${hue})`;
+  darkColors.muted = `oklch(0.269 0.015 ${hue})`;
+  darkColors.mutedForeground = `oklch(0.708 0.02 ${hue})`;
+  darkColors.accent = `oklch(0.269 0.02 ${hue})`;
+  darkColors.accentForeground = `oklch(0.985 0.005 ${hue})`;
+  darkColors.sidebar = `oklch(0.205 0.015 ${hue})`;
+  darkColors.sidebarForeground = `oklch(0.985 0.005 ${hue})`;
+  darkColors.sidebarPrimary = `oklch(0.6 0.18 ${hue})`;
+  darkColors.sidebarAccent = `oklch(0.269 0.02 ${hue})`;
+  darkColors.sidebarAccentForeground = `oklch(0.985 0.005 ${hue})`;
+  darkColors.ring = `oklch(0.6 0.18 ${hue})`;
+  darkColors.sidebarRing = `oklch(0.6 0.18 ${hue})`;
+  darkColors.avatarOverlayBlend = "lighten";
+  darkColors.inputSheer = "oklch(1 0 0 / 30%)";
+  darkColors.inputSheerHover = "oklch(1 0 0 / 50%)";
+  darkColors.border = "oklch(1 0 0 / 10%)";
+  darkColors.input = "oklch(1 0 0 / 15%)";
+  darkColors.borderInput = "oklch(1 0 0 / 15%)";
+  darkColors.sidebarBorder = "oklch(1 0 0 / 10%)";
+  darkColors.activeTabBorder = "oklch(1 0 0 / 15%)";
+
   return {
     name: `random-${hue}`,
-    colors,
+    light: colors,
+    dark: darkColors,
     radius: "0.625rem",
   };
 }
@@ -304,11 +359,11 @@ function generateRandomTheme(): ThemeConfig {
 // ---------------------------------------------------------------------------
 // Derive non-primary tokens from updated primary ones
 // ---------------------------------------------------------------------------
-function deriveFullTheme(
-  base: ThemeConfig,
-  overrides: Partial<ThemeConfig["colors"]>
-): ThemeConfig {
-  const colors = { ...base.colors, ...overrides };
+function deriveColorTokens(
+  base: ColorTokens,
+  overrides: Partial<ColorTokens>
+): ColorTokens {
+  const colors = { ...base, ...overrides };
 
   // Keep derived tokens in sync with primary ones
   colors.popover = colors.background;
@@ -330,14 +385,23 @@ function deriveFullTheme(
   colors.checkedBorder = `${prim.replace(/\)$/, " / 30%)")}`;
   colors.checkedBg = `${prim.replace(/\)$/, " / 5%)")}`;
 
-  return { ...base, colors };
+  return colors;
+}
+
+function deriveFullTheme(
+  base: ThemeConfig,
+  overrides: Partial<ColorTokens>,
+  mode: "light" | "dark"
+): ThemeConfig {
+  const derived = deriveColorTokens(base[mode], overrides);
+  return { ...base, [mode]: derived };
 }
 
 // ---------------------------------------------------------------------------
 // Apply hue shift to all oklch color tokens
 // ---------------------------------------------------------------------------
-function applyHueShift(theme: ThemeConfig, hueOffset: number): ThemeConfig {
-  const colors = { ...theme.colors };
+function shiftColorsHue(tokens: ColorTokens, hueOffset: number): ColorTokens {
+  const colors = { ...tokens };
   const oklchRe = /oklch\(([^)]+)\)/;
 
   for (const key of Object.keys(colors) as (keyof typeof colors)[]) {
@@ -358,9 +422,14 @@ function applyHueShift(theme: ThemeConfig, hueOffset: number): ThemeConfig {
     }
   }
 
+  return colors;
+}
+
+function applyHueShift(theme: ThemeConfig, hueOffset: number): ThemeConfig {
   return {
     ...theme,
-    colors,
+    light: shiftColorsHue(theme.light, hueOffset),
+    dark: shiftColorsHue(theme.dark, hueOffset),
     adjustments: { ...theme.adjustments, hueShift: hueOffset },
   };
 }
@@ -737,7 +806,7 @@ function LivePreview() {
 // Main page
 // ---------------------------------------------------------------------------
 export default function ThemeEditorPage() {
-  const { theme, setTheme, presets } = useTheme();
+  const { theme, setTheme, presets, colorMode } = useTheme();
   // Local draft state so we can batch edits before auto-saving
   const [draft, setDraft] = useState<ThemeConfig>(theme);
 
@@ -789,11 +858,11 @@ export default function ThemeEditorPage() {
   );
 
   const updateColor = useCallback(
-    (key: keyof ThemeConfig["colors"], value: string) => {
-      const derived = deriveFullTheme(draft, { [key]: value });
+    (key: keyof ColorTokens, value: string) => {
+      const derived = deriveFullTheme(draft, { [key]: value }, colorMode);
       applyDraft(derived);
     },
-    [draft, applyDraft]
+    [draft, applyDraft, colorMode]
   );
 
   const handlePreset = useCallback(
@@ -808,7 +877,7 @@ export default function ThemeEditorPage() {
   }, [applyDraft]);
 
   const handleReset = useCallback(() => {
-    applyDraft(defaultLightTheme);
+    applyDraft(defaultTheme);
   }, [applyDraft]);
 
   const handleRadiusChange = useCallback(
@@ -975,10 +1044,10 @@ export default function ThemeEditorPage() {
             >
               <div className="flex gap-1 mb-1.5">
                 {[
-                  preset.colors.primary,
-                  preset.colors.secondary,
-                  preset.colors.accent,
-                  preset.colors.background,
+                  preset.light.primary,
+                  preset.light.secondary,
+                  preset.light.accent,
+                  preset.light.background,
                 ].map((c, i) => (
                   <div
                     key={i}
@@ -1016,10 +1085,10 @@ export default function ThemeEditorPage() {
               >
                 <div className="flex gap-1 mb-1.5">
                   {[
-                    ct.colors.primary,
-                    ct.colors.secondary,
-                    ct.colors.accent,
-                    ct.colors.background,
+                    ct.light.primary,
+                    ct.light.secondary,
+                    ct.light.accent,
+                    ct.light.background,
                   ].map((c, i) => (
                     <div
                       key={i}
@@ -1130,7 +1199,7 @@ export default function ThemeEditorPage() {
                   <TokenEditor
                     key={t.key}
                     label={t.label}
-                    value={draft.colors[t.key]}
+                    value={draft[colorMode][t.key]}
                     onChange={(v) => updateColor(t.key, v)}
                   />
                 ))}

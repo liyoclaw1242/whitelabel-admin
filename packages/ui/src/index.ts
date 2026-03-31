@@ -5,13 +5,14 @@ export { cn } from "./lib/utils";
 export { ThemeProvider, ThemeContext } from "./components/theme-provider";
 export type { ThemeContextValue } from "./components/theme-provider";
 export {
+  defaultTheme,
   defaultLightTheme,
   defaultDarkTheme,
   brandBlueTheme,
   brandGreenTheme,
   themePresets,
 } from "./lib/theme-config";
-export type { ThemeConfig } from "./lib/theme-config";
+export type { ThemeConfig, ColorTokens, ColorMode } from "./lib/theme-config";
 
 // Hooks
 export { useIsMobile } from "./hooks/use-mobile";

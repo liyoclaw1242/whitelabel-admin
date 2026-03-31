@@ -32,15 +32,18 @@ import {
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
+  useTheme,
 } from "@whitelabel/ui";
 import {
   BellIcon,
   HomeIcon,
   LayoutDashboardIcon,
   LogOutIcon,
+  MoonIcon,
   PaletteIcon,
   SearchIcon,
   SettingsIcon,
+  SunIcon,
   UserIcon,
   UsersIcon,
 } from "lucide-react";
@@ -159,6 +162,20 @@ function DashboardBreadcrumb() {
   );
 }
 
+function ColorModeToggle() {
+  const { colorMode, toggleColorMode } = useTheme();
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={colorMode === "light" ? "Switch to dark mode" : "Switch to light mode"}
+      onClick={toggleColorMode}
+    >
+      {colorMode === "light" ? <MoonIcon className="size-4" /> : <SunIcon className="size-4" />}
+    </Button>
+  );
+}
+
 function DashboardHeader() {
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 px-4 ring-1 ring-border/60 ring-inset">
@@ -177,6 +194,7 @@ function DashboardHeader() {
         <Button variant="ghost" size="icon-sm" className="sm:hidden" aria-label="Search">
           <SearchIcon className="size-4" />
         </Button>
+        <ColorModeToggle />
         <Button variant="ghost" size="icon-sm" aria-label="Notifications">
           <BellIcon className="size-4" />
         </Button>
