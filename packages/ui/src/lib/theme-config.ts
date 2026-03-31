@@ -392,35 +392,29 @@ export function applyThemeToDOM(theme: ThemeConfig): void {
   root.style.setProperty("--active-tab-border", theme.colors.activeTabBorder);
   root.style.setProperty("--avatar-overlay-blend", theme.colors.avatarOverlayBlend);
   root.style.setProperty("--radius", theme.radius);
-  if (theme.fontFamily) {
-    root.style.setProperty("--font-sans", theme.fontFamily);
+  // Font family — always reset to avoid stale values
+  if (theme.fontFamily || theme.typography?.fontSans) {
+    root.style.setProperty("--font-sans", theme.typography?.fontSans || theme.fontFamily || "");
+  } else {
+    root.style.removeProperty("--font-sans");
   }
-  if (theme.typography) {
-    if (theme.typography.fontSans) {
-      root.style.setProperty("--font-sans", theme.typography.fontSans);
-    }
-    if (theme.typography.fontSerif) {
-      root.style.setProperty("--font-serif", theme.typography.fontSerif);
-    }
-    if (theme.typography.fontMono) {
-      root.style.setProperty("--font-mono", theme.typography.fontMono);
-    }
-    if (theme.typography.letterSpacing) {
-      root.style.setProperty("--tracking-body", theme.typography.letterSpacing);
-    }
-  }
-  if (theme.adjustments) {
-    const spacing = theme.adjustments.spacingMultiplier ?? 1;
-    root.style.setProperty("--spacing-multiplier", String(spacing));
 
-    const shadowMap: Record<string, string> = {
-      none: "none",
-      subtle: "0 1px 2px 0 rgb(0 0 0 / 0.03)",
-      medium: "0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08)",
-      prominent: "0 4px 6px -1px rgb(0 0 0 / 0.12), 0 2px 4px -2px rgb(0 0 0 / 0.08)",
-    };
-    const shadow = theme.adjustments.shadowIntensity ?? "subtle";
-    root.style.setProperty("--shadow-theme", shadowMap[shadow] || shadowMap.subtle);
-  }
+  // Typography — always set (reset to defaults when absent)
+  root.style.setProperty("--font-serif", theme.typography?.fontSerif || "");
+  root.style.setProperty("--font-mono", theme.typography?.fontMono || "");
+  root.style.setProperty("--tracking-body", theme.typography?.letterSpacing || "normal");
+
+  // Adjustments — always set (reset to defaults when absent)
+  const spacing = theme.adjustments?.spacingMultiplier ?? 1;
+  root.style.setProperty("--spacing-multiplier", String(spacing));
+
+  const shadowMap: Record<string, string> = {
+    none: "none",
+    subtle: "0 1px 2px 0 rgb(0 0 0 / 0.03)",
+    medium: "0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08)",
+    prominent: "0 4px 6px -1px rgb(0 0 0 / 0.12), 0 2px 4px -2px rgb(0 0 0 / 0.08)",
+  };
+  const shadow = theme.adjustments?.shadowIntensity ?? "subtle";
+  root.style.setProperty("--shadow-theme", shadowMap[shadow] || shadowMap.subtle);
   root.setAttribute("data-theme", theme.name);
 }
