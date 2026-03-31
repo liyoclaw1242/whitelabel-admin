@@ -92,6 +92,8 @@ import {
   Trash2Icon,
   UnderlineIcon,
 } from "lucide-react";
+import { CardsScene } from "./cards-scene";
+import { DashboardScene } from "./dashboard-scene";
 
 // ---------------------------------------------------------------------------
 // Token groups: only the ~20 primary tokens users should edit directly
@@ -1359,10 +1361,27 @@ export default function ThemeEditorPage() {
 
   const previewContent = (
     <div className="overflow-y-auto rounded-xl bg-background p-4 ring-1 ring-foreground/10 sm:p-6">
-      <h2 className="text-sm font-medium text-muted-foreground mb-4">
-        Live Preview
-      </h2>
-      <LivePreview />
+      <Tabs defaultValue="components">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Live Preview
+          </h2>
+          <TabsList className="gap-1 p-1">
+            <TabsTrigger value="components" className="px-2.5 text-xs">Components</TabsTrigger>
+            <TabsTrigger value="cards" className="px-2.5 text-xs">Cards</TabsTrigger>
+            <TabsTrigger value="dashboard" className="px-2.5 text-xs">Dashboard</TabsTrigger>
+          </TabsList>
+        </div>
+        <TabsContent value="components" className="mt-0">
+          <LivePreview />
+        </TabsContent>
+        <TabsContent value="cards" className="mt-0">
+          <CardsScene />
+        </TabsContent>
+        <TabsContent value="dashboard" className="mt-0">
+          <DashboardScene />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 
