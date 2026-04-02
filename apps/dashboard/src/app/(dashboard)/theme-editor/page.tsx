@@ -878,6 +878,9 @@ export default function ThemeEditorPage() {
   // Local draft state so we can batch edits before auto-saving
   const [draft, setDraft] = useState<ThemeConfig>(theme);
 
+  // Base theme before HSL adjustments — adjustments are always applied relative to this
+  const hslBaseRef = useRef<ThemeConfig>(theme);
+
   // Mobile/tablet: tab-based view (editor vs preview)
   const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
 
@@ -932,6 +935,7 @@ export default function ThemeEditorPage() {
   const updateColor = useCallback(
     (key: keyof ColorTokens, value: string) => {
       const derived = deriveFullTheme(draft, { [key]: value }, colorMode);
+      hslBaseRef.current = derived;
       applyDraft(derived);
     },
     [draft, applyDraft, colorMode]
@@ -939,6 +943,7 @@ export default function ThemeEditorPage() {
 
   const handlePreset = useCallback(
     (preset: ThemeConfig) => {
+      hslBaseRef.current = preset;
       applyDraft(preset);
     },
     [applyDraft]
@@ -947,16 +952,20 @@ export default function ThemeEditorPage() {
   const handleTweakcnPreset = useCallback(
     (preset: ThemePreset) => {
       const { category, source, ...themeConfig } = preset;
+      hslBaseRef.current = themeConfig as ThemeConfig;
       applyDraft(themeConfig as ThemeConfig);
     },
     [applyDraft]
   );
 
   const handleRandomize = useCallback(() => {
-    applyDraft(generateRandomTheme());
+    const random = generateRandomTheme();
+    hslBaseRef.current = random;
+    applyDraft(random);
   }, [applyDraft]);
 
   const handleReset = useCallback(() => {
+    hslBaseRef.current = defaultTheme;
     applyDraft(defaultTheme);
   }, [applyDraft]);
 
@@ -998,10 +1007,10 @@ export default function ThemeEditorPage() {
 
   const handleHSLChange = useCallback(
     (hue: number, sat: number, light: number) => {
-      const adjusted = applyHSLToTheme(draft, hue, sat, light);
+      const adjusted = applyHSLToTheme(hslBaseRef.current, hue, sat, light);
       applyDraft(adjusted);
     },
-    [draft, applyDraft]
+    [applyDraft]
   );
 
   const handleHueShift = useCallback(
@@ -1125,6 +1134,7 @@ export default function ThemeEditorPage() {
   // --- Switch to custom theme ---
   const handleCustomThemeSelect = useCallback(
     (ct: ThemeConfig) => {
+      hslBaseRef.current = ct;
       applyDraft(ct);
     },
     [applyDraft]
