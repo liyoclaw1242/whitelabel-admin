@@ -393,39 +393,112 @@ function deriveFullTheme(
 }
 
 // ---------------------------------------------------------------------------
-// Apply hue shift to all oklch color tokens
+// HSL adjustment helpers — work with oklch() and hex color formats
 // ---------------------------------------------------------------------------
-function shiftColorsHue(tokens: ColorTokens, hueOffset: number): ColorTokens {
-  const colors = { ...tokens };
+function hexToOklch(hex: string): [number, number, number] | null {
+  const m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return null;
+  let r = parseInt(m[1], 16) / 255;
+  let g = parseInt(m[2], 16) / 255;
+  let b = parseInt(m[3], 16) / 255;
+  // sRGB to linear
+  r = r <= 0.04045 ? r / 12.92 : Math.pow((r + 0.055) / 1.055, 2.4);
+  g = g <= 0.04045 ? g / 12.92 : Math.pow((g + 0.055) / 1.055, 2.4);
+  b = b <= 0.04045 ? b / 12.92 : Math.pow((b + 0.055) / 1.055, 2.4);
+  // to XYZ D65
+  const x = 0.4124 * r + 0.3576 * g + 0.1805 * b;
+  const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const z = 0.0193 * r + 0.1192 * g + 0.9505 * b;
+  // to OKLab
+  const l_ = Math.cbrt(0.8189 * x + 0.3619 * y - 0.1289 * z);
+  const m_ = Math.cbrt(0.0330 * x + 0.9293 * y + 0.0361 * z);
+  const s_ = Math.cbrt(0.0482 * x + 0.2641 * y + 0.6339 * z);
+  const L = 0.2105 * l_ + 0.7937 * m_ - 0.0041 * s_;
+  const a = 1.9780 * l_ - 2.4286 * m_ + 0.4506 * s_;
+  const bk = 0.0259 * l_ + 0.7828 * m_ - 0.8087 * s_;
+  const C = Math.sqrt(a * a + bk * bk);
+  const h = ((Math.atan2(bk, a) * 180) / Math.PI + 360) % 360;
+  return [L, C, h];
+}
+
+function adjustOklchColor(
+  val: string,
+  hueShift: number,
+  satMul: number,
+  lightMul: number
+): string {
+  // Try oklch format first
   const oklchRe = /oklch\(([^)]+)\)/;
-
-  for (const key of Object.keys(colors) as (keyof typeof colors)[]) {
-    const val = colors[key];
-    if (typeof val !== "string") continue;
-    const match = val.match(oklchRe);
-    if (!match) continue;
-
-    const parts = match[1].trim().split(/\s+/);
+  const match = val.match(oklchRe);
+  if (match) {
+    const inner = match[1].trim();
+    const parts = inner.split(/\s+/);
     if (parts.length >= 3) {
+      let L = parseFloat(parts[0]);
+      let C = parseFloat(parts[1]);
       const hueStr = parts[2].replace(/[^0-9.-]/g, "");
-      const hue = parseFloat(hueStr);
-      if (!isNaN(hue) && hue !== 0) {
-        const newHue = ((hueOffset) % 360 + 360) % 360;
-        parts[2] = parts[2].replace(hueStr, String(Math.round(newHue)));
-        colors[key] = val.replace(match[1], parts.join(" "));
-      }
+      let h = parseFloat(hueStr);
+      if (isNaN(h)) return val;
+      // Apply adjustments
+      L = Math.min(1, Math.max(0, L * lightMul));
+      C = Math.max(0, C * satMul);
+      h = ((h + hueShift) % 360 + 360) % 360;
+      parts[0] = L.toFixed(3);
+      parts[1] = C.toFixed(3);
+      parts[2] = parts[2].replace(hueStr, String(Math.round(h)));
+      return val.replace(match[1], parts.join(" "));
     }
   }
 
-  return colors;
+  // Try hex format
+  if (val.startsWith("#")) {
+    const lch = hexToOklch(val);
+    if (!lch) return val;
+    let [L, C, h] = lch;
+    L = Math.min(1, Math.max(0, L * lightMul));
+    C = Math.max(0, C * satMul);
+    h = ((h + hueShift) % 360 + 360) % 360;
+    return `oklch(${L.toFixed(3)} ${C.toFixed(3)} ${Math.round(h)})`;
+  }
+
+  return val;
 }
 
-function applyHueShift(theme: ThemeConfig, hueOffset: number): ThemeConfig {
+const NON_COLOR_KEYS = new Set(["avatarOverlayBlend"]);
+
+function applyHSLAdjustments(
+  tokens: ColorTokens,
+  hueShift: number,
+  satMul: number,
+  lightMul: number
+): ColorTokens {
+  const result = { ...tokens };
+  for (const key of Object.keys(result) as (keyof ColorTokens)[]) {
+    if (NON_COLOR_KEYS.has(key)) continue;
+    const val = result[key];
+    if (typeof val !== "string") continue;
+    if (val === "transparent" || val === "none") continue;
+    result[key] = adjustOklchColor(val, hueShift, satMul, lightMul);
+  }
+  return result;
+}
+
+function applyHSLToTheme(
+  theme: ThemeConfig,
+  hueShift: number,
+  satMul: number,
+  lightMul: number
+): ThemeConfig {
   return {
     ...theme,
-    light: shiftColorsHue(theme.light, hueOffset),
-    dark: shiftColorsHue(theme.dark, hueOffset),
-    adjustments: { ...theme.adjustments, hueShift: hueOffset },
+    light: applyHSLAdjustments(theme.light, hueShift, satMul, lightMul),
+    dark: applyHSLAdjustments(theme.dark, hueShift, satMul, lightMul),
+    adjustments: {
+      ...theme.adjustments,
+      hueShift,
+      saturationMultiplier: satMul,
+      lightnessMultiplier: lightMul,
+    },
   };
 }
 
@@ -923,12 +996,45 @@ export default function ThemeEditorPage() {
     [draft, applyDraft]
   );
 
-  const handleHueShift = useCallback(
-    (hueOffset: number) => {
-      const shifted = applyHueShift(draft, hueOffset);
-      applyDraft(shifted);
+  const handleHSLChange = useCallback(
+    (hue: number, sat: number, light: number) => {
+      const adjusted = applyHSLToTheme(draft, hue, sat, light);
+      applyDraft(adjusted);
     },
     [draft, applyDraft]
+  );
+
+  const handleHueShift = useCallback(
+    (hue: number) => {
+      handleHSLChange(
+        hue,
+        draft.adjustments?.saturationMultiplier ?? 1,
+        draft.adjustments?.lightnessMultiplier ?? 1
+      );
+    },
+    [handleHSLChange, draft.adjustments]
+  );
+
+  const handleSaturationChange = useCallback(
+    (sat: number) => {
+      handleHSLChange(
+        draft.adjustments?.hueShift ?? 0,
+        sat,
+        draft.adjustments?.lightnessMultiplier ?? 1
+      );
+    },
+    [handleHSLChange, draft.adjustments]
+  );
+
+  const handleLightnessChange = useCallback(
+    (light: number) => {
+      handleHSLChange(
+        draft.adjustments?.hueShift ?? 0,
+        draft.adjustments?.saturationMultiplier ?? 1,
+        light
+      );
+    },
+    [handleHSLChange, draft.adjustments]
   );
 
   // --- Save theme ---
@@ -1421,6 +1527,42 @@ export default function ThemeEditorPage() {
                   </button>
                 ))}
               </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Saturation</Label>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {((draft.adjustments?.saturationMultiplier ?? 1) * 100).toFixed(0)}%
+                </span>
+              </div>
+              <Slider
+                value={[draft.adjustments?.saturationMultiplier ?? 1]}
+                min={0}
+                max={2}
+                step={0.01}
+                onValueChange={(val) => {
+                  const v = Array.isArray(val) ? val[0] : val;
+                  handleSaturationChange(v);
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Lightness</Label>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {((draft.adjustments?.lightnessMultiplier ?? 1) * 100).toFixed(0)}%
+                </span>
+              </div>
+              <Slider
+                value={[draft.adjustments?.lightnessMultiplier ?? 1]}
+                min={0.5}
+                max={1.5}
+                step={0.01}
+                onValueChange={(val) => {
+                  const v = Array.isArray(val) ? val[0] : val;
+                  handleLightnessChange(v);
+                }}
+              />
             </div>
           </section>
 
