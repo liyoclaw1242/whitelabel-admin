@@ -42,7 +42,6 @@ import {
   MoonIcon,
   PaletteIcon,
   SearchIcon,
-  SettingsIcon,
   SunIcon,
   UserIcon,
   UsersIcon,
@@ -54,7 +53,6 @@ const navItems = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
   { title: "Users", href: "/users", icon: UsersIcon },
   { title: "Theme Editor", href: "/theme-editor", icon: PaletteIcon },
-  { title: "Settings", href: "/settings", icon: SettingsIcon },
 ];
 
 function AppSidebar() {
@@ -115,10 +113,6 @@ function AppSidebar() {
                 <DropdownMenuItem>
                   <UserIcon className="mr-2 size-4" />
                   Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem render={<Link href="/settings" />}>
-                  <SettingsIcon className="mr-2 size-4" />
-                  Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem>
@@ -208,10 +202,6 @@ function DashboardHeader() {
             <DropdownMenuItem>
               <UserIcon className="mr-2 size-4" />
               Profile
-            </DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/settings" />}>
-              <SettingsIcon className="mr-2 size-4" />
-              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
