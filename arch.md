@@ -128,7 +128,7 @@ No backend API routes yet. The app is entirely client-side with localStorage per
 | `/dashboard` | Placeholder | Dashboard (stub) |
 | `/users` | Placeholder | User management (stub) |
 | `/theme-editor` | Implemented | Theme customization (colors, typography, presets, preview) |
-| `/settings` | Placeholder | Settings (stub) |
+| `/settings` | **Removed** (2026-04-07, #77) | Redundant — theme-editor covers this |
 
 ### Key Decision Points
 | Step | User Decision | System Response |
@@ -167,7 +167,7 @@ Early MVP — Theme editor is the core feature. Dashboard, Users, Settings are p
 |---------|--------------|-------------|
 | Dashboard (real data) | New Data context, API routes | Backend, database |
 | User management | New User aggregate, CRUD | Auth, backend, database |
-| Settings page | Configuration context | Backend for persistence |
+| ~~Settings page~~ | ~~Removed 2026-04-07~~ | Redundant — theme-editor is sufficient |
 | Theme export/import | File generation | Theme system extension |
 | Multi-tenant support | Tenant isolation, auth scoping | Auth, database, major architecture change |
 
