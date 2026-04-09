@@ -142,7 +142,7 @@ No backend API routes yet. The app is entirely client-side with localStorage per
 ## Product Roadmap Context
 
 ### Current Phase
-Early MVP — Theme editor is the core feature. Dashboard, Users, Settings are placeholders.
+Long-term product (not MVP). Theme editor is the core feature. Dashboard, Users are placeholders. Building production infrastructure.
 
 ### Recent Decisions
 - 2026-03-25: shadcn v4 + @base-ui/react as component primitives
@@ -151,6 +151,7 @@ Early MVP — Theme editor is the core feature. Dashboard, Users, Settings are p
 - 2026-03-26: Dual light/dark ThemeConfig (both modes stored per theme, not separately)
 - 2026-03-31: 42 tweakcn presets imported with category tags
 - 2026-04-01: Preset selector with grid, category filter, search
+- 2026-04-09: OTel-first log monitoring (#80) — raw `@opentelemetry/sdk-node` (not `@vercel/otel`), `packages/otel` shared config, Sentry for client-side errors, Axiom or Grafana Cloud as managed OTLP backend
 
 ### Known Tech Debt
 | Item | Impact | Priority |
@@ -165,6 +166,7 @@ Early MVP — Theme editor is the core feature. Dashboard, Users, Settings are p
 ### Planned Features (from nav structure)
 | Feature | Domain Impact | Dependencies |
 |---------|--------------|-------------|
+| OTel + Sentry monitoring (#81-#84) | New `packages/otel` context, `instrumentation.ts` | In progress — Phase 1 |
 | Dashboard (real data) | New Data context, API routes | Backend, database |
 | User management | New User aggregate, CRUD | Auth, backend, database |
 | ~~Settings page~~ | ~~Removed 2026-04-07~~ | Redundant — theme-editor is sufficient |
