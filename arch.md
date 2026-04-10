@@ -77,6 +77,11 @@ whitelabel-admin/
           (dashboard)/
             layout.tsx            # Sidebar + header shell (client component)
             page.tsx              # Home/overview with stat cards
+    storybook/                    # Storybook 8 + React + Vite (planned, see #85)
+      .storybook/                 # main.ts, preview.tsx (ThemeProvider decorator + toolbar)
+      src/
+        styles.css                # mirrors dashboard globals.css for Tailwind v4
+        stories/{atoms,forms,layout}/ # *.stories.tsx — one per @whitelabel/ui component
   packages/
     ui/                           # @whitelabel/ui — shared component library
       src/
