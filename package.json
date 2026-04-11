@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "pnpm --filter dashboard dev",
     "build": "pnpm --filter dashboard build",
-    "lint": "pnpm --filter dashboard lint"
+    "lint": "pnpm --filter dashboard lint",
+    "storybook": "pnpm --filter storybook dev",
+    "build-storybook": "pnpm --filter storybook build"
   },
   "engines": {
     "node": ">=20"
