@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@sentry/nextjs": "^10.48.0",
+    "@whitelabel/otel": "workspace:*",
     "@whitelabel/ui": "workspace:*",
     "lucide-react": "^1.6.0",
     "next": "canary",
