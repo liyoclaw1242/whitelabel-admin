@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@whitelabel/ui"],
+  transpilePackages: ["@whitelabel/ui", "@whitelabel/otel"],
 };
 
 export default withSentryConfig(nextConfig, {
