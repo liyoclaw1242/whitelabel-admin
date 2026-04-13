@@ -68,14 +68,16 @@ const RADIUS_OPTIONS = [
 ];
 
 // Bridges Storybook globals into the @whitelabel/ui ThemeContext.
-// Kept as an inner component so it has access to useTheme().
-function ThemeToolbarSync({ children }: { children: React.ReactNode }) {
-  const [globals] = useGlobals();
-  const { theme, setTheme, setColorMode } = useTheme();
+// Props are passed down from the decorator (where useGlobals is allowed).
+interface ThemeToolbarSyncProps {
+  children: React.ReactNode;
+  presetName: string;
+  colorModeGlobal: "light" | "dark" | "";
+  radiusGlobal: string;
+}
 
-  const presetName = (globals.preset as string | undefined) ?? "";
-  const colorModeGlobal = (globals.colorMode as "light" | "dark" | "" | undefined) ?? "";
-  const radiusGlobal = (globals.radius as string | undefined) ?? "";
+function ThemeToolbarSync({ children, presetName, colorModeGlobal, radiusGlobal }: ThemeToolbarSyncProps) {
+  const { theme, setTheme, setColorMode } = useTheme();
 
   // Apply preset when the toolbar value changes. Empty string means
   // "don't touch" so the persisted localStorage theme stays authoritative.
@@ -103,13 +105,21 @@ function ThemeToolbarSync({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-const withTheme: Decorator = (Story) => (
-  <ThemeProvider>
-    <ThemeToolbarSync>
-      <Story />
-    </ThemeToolbarSync>
-  </ThemeProvider>
-);
+// useGlobals must be called directly inside the decorator function (Storybook rule).
+const withTheme: Decorator = (Story, context) => {
+  const [globals] = useGlobals();
+  const presetName = (globals.preset as string | undefined) ?? "";
+  const colorModeGlobal = (globals.colorMode as "light" | "dark" | "" | undefined) ?? "";
+  const radiusGlobal = (globals.radius as string | undefined) ?? "";
+
+  return (
+    <ThemeProvider>
+      <ThemeToolbarSync presetName={presetName} colorModeGlobal={colorModeGlobal} radiusGlobal={radiusGlobal}>
+        <Story />
+      </ThemeToolbarSync>
+    </ThemeProvider>
+  );
+};
 
 const preview: Preview = {
   parameters: {
