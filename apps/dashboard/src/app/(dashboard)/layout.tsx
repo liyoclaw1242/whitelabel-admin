@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/auth-store";
 import {
   Avatar,
   AvatarFallback,
@@ -48,15 +49,27 @@ import {
 } from "lucide-react";
 import React from "react";
 
-const navItems = [
+interface NavItem {
+  title: string;
+  href: string;
+  icon: typeof HomeIcon;
+  permission?: string;
+}
+
+const navItems: NavItem[] = [
   { title: "Home", href: "/", icon: HomeIcon },
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboardIcon },
-  { title: "Users", href: "/users", icon: UsersIcon },
-  { title: "Theme Editor", href: "/theme-editor", icon: PaletteIcon },
+  { title: "Users", href: "/users", icon: UsersIcon, permission: "users.read" },
+  { title: "Theme Editor", href: "/theme-editor", icon: PaletteIcon, permission: "theme.edit" },
 ];
 
 function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, hasPermission, logout } = useAuth();
+  const visibleItems = navItems.filter(
+    (item) => !item.permission || hasPermission(item.permission),
+  );
 
   return (
     <Sidebar collapsible="icon">
@@ -80,7 +93,7 @@ function AppSidebar() {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
                     render={<Link href={item.href} />}
@@ -102,11 +115,13 @@ function AppSidebar() {
             <DropdownMenu>
               <DropdownMenuTrigger render={<SidebarMenuButton size="lg" tooltip="User menu" />}>
                 <Avatar className="size-8">
-                  <AvatarFallback>U</AvatarFallback>
+                  <AvatarFallback>{(user?.name ?? "U").slice(0, 1)}</AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">User</span>
-                  <span className="truncate text-xs text-muted-foreground">user@example.com</span>
+                  <span className="truncate font-semibold">{user?.name ?? "Guest"}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {user?.email ?? "—"}
+                  </span>
                 </div>
               </DropdownMenuTrigger>
               <DropdownMenuContent side="top" align="start" className="w-56">
@@ -115,7 +130,12 @@ function AppSidebar() {
                   Profile
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    logout();
+                    router.replace("/login");
+                  }}
+                >
                   <LogOutIcon className="mr-2 size-4" />
                   Log out
                 </DropdownMenuItem>
