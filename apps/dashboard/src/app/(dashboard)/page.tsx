@@ -10,20 +10,24 @@ import {
   ClockIcon,
   UsersIcon,
 } from "lucide-react";
+import { FaroTestButton } from "@/components/FaroTestButton";
 
 export default function HomePage() {
   return (
     <div className="space-y-8">
-      <div>
-        <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground font-mono">
-          Dashboard
-        </p>
-        <h1 className="mt-1 text-2xl font-bold -tracking-[0.02em]">
-          Overview
-        </h1>
-        <p className="mt-1 max-w-[60ch] text-sm text-muted-foreground">
-          Welcome to your admin dashboard.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground font-mono">
+            Dashboard
+          </p>
+          <h1 className="mt-1 text-2xl font-bold -tracking-[0.02em]">
+            Overview
+          </h1>
+          <p className="mt-1 max-w-[60ch] text-sm text-muted-foreground">
+            Welcome to your admin dashboard.
+          </p>
+        </div>
+        <FaroTestButton />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard

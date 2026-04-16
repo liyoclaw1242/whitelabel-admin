@@ -13,6 +13,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@grafana/faro-web-sdk": "^2.3.1",
+    "@grafana/faro-web-tracing": "^2.3.1",
     "@tanstack/react-query": "^5.99.0",
     "@tanstack/react-query-devtools": "^5.99.0",
     "@whitelabel/otel": "workspace:*",
