@@ -1,4 +1,7 @@
-// Command api runs the Whitelabel Admin HTTP API.
+// Command api runs the Whitelabel Admin HTTP API locally.
+//
+// In production the same router is served via Vercel's Go serverless
+// runtime — see apps/server/api/catchall.go.
 package main
 
 import (
@@ -13,6 +16,7 @@ import (
 
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/db"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/router"
 )
 
 func main() {
@@ -31,25 +35,25 @@ func run() error {
 		port = "8080"
 	}
 
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		return errors.New("DATABASE_URL env required")
+	// DATABASE_URL is optional. When unset, /api/health gracefully
+	// reports {"db":"not_configured"} instead of crashing startup —
+	// this lets Vercel previews boot before OPS wires the Neon URL.
+	var conn health.Pinger
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		d, err := db.Open(dbURL)
+		if err != nil {
+			return err
+		}
+		defer d.Close()
+		conn = d
+		slog.Info("database connected")
+	} else {
+		slog.Warn("DATABASE_URL not set — /api/health will report not_configured")
 	}
-
-	conn, err := db.Open(dbURL)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	slog.Info("database connected")
-
-	mux := http.NewServeMux()
-	// /api/health is unauthenticated — external probes must reach it.
-	mux.Handle("GET /api/health", health.Handler(conn))
 
 	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      loggingMiddleware(mux),
+		Handler:      router.New(conn),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
@@ -75,28 +79,4 @@ func run() error {
 	}
 	slog.Info("server stopped gracefully")
 	return nil
-}
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(rw, r)
-		slog.Info("request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"status", rw.status,
-			"duration_ms", time.Since(start).Milliseconds(),
-		)
-	})
-}
-
-type responseWriter struct {
-	http.ResponseWriter
-	status int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.status = code
-	rw.ResponseWriter.WriteHeader(code)
 }

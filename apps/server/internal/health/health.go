@@ -18,9 +18,19 @@ type Pinger interface {
 }
 
 // Handler returns the /api/health handler. It pings the DB with a 2s timeout.
-// Success → 200 application/json; failure → 503 application/problem+json.
+// Behavior:
+//   - db == nil  → 503 application/json  {"db":"not_configured"} (graceful degradation)
+//   - ping fails → 503 application/problem+json
+//   - ping ok    → 200 application/json  {"status":"ok","db":"connected"}
 func Handler(db Pinger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"db": "not_configured"})
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(r.Context(), pingTimeout)
 		defer cancel()
 
