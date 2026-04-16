@@ -261,3 +261,15 @@ Sentry v10 有 `@sentry/opentelemetry`，理論上可以當 OTel error collector
 - Parent: #110 Phase 0 checklist
 - Related: #112 Phase 2 (Faro wiring), #115 Phase 5 (observability end-to-end)
 - Origin of Sentry: #83 (closed), #84 (closed, OTel+Sentry integration QA)
+
+---
+
+## Migration completion (2026-04-17)
+
+The cycle is closed:
+
+- **#139** (PR #152) — Sentry SDK + 3 configs + `withSentryConfig` wrapper + `Sentry.captureException` removed; `console.error(error)` placeholder left in `global-error.tsx`.
+- **#140** (PR #157) — Faro Web SDK + TracingInstrumentation init in `<FaroProvider>` (outermost layout slot).
+- **#160** (this commit) — `console.error(error)` placeholder in `global-error.tsx` replaced with `faro.api.pushError(error)` + console fallback for the very-early-error / Faro-not-yet-init case.
+
+Faro's `getWebInstrumentations()` already covers `window.onerror` / unhandled rejections / fetch errors at SDK boot. `global-error.tsx` adds React render-error coverage (the App Router boundary that the SDK can't auto-attach).
