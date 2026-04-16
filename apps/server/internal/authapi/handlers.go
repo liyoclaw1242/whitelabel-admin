@@ -31,16 +31,19 @@ type Handlers struct {
 	CookieSec bool                // set Secure flag on refresh cookie (false in local dev)
 }
 
-// Mount attaches the endpoints to mux.
+// Mount attaches the unauthenticated endpoints (login/refresh/logout) to mux.
+// /api/auth/me must be mounted separately under AuthContext — use MeHandler.
 func (h *Handlers) Mount(mux interface {
 	Post(pattern string, fn http.HandlerFunc)
-	Get(pattern string, fn http.HandlerFunc)
 }) {
 	mux.Post("/api/auth/login", h.login)
 	mux.Post("/api/auth/refresh", h.refresh)
 	mux.Post("/api/auth/logout", h.logout)
-	mux.Get("/api/auth/me", h.me)
 }
+
+// MeHandler returns the /api/auth/me handler so the router can wrap it in
+// AuthContext (Bearer-token required).
+func (h *Handlers) MeHandler() http.HandlerFunc { return h.me }
 
 // ----- Login -----
 

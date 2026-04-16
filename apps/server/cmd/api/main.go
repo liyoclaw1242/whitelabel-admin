@@ -14,10 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/auth"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/blacklist"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/db"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/router"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/store"
 )
 
 func main() {
@@ -65,9 +68,29 @@ func run() error {
 		slog.Warn("DATABASE_URL not set — /api/health will report not_configured")
 	}
 
+	// Auth deps — gracefully degrade when JWT keys aren't provided so local
+	// dev can iterate on non-auth endpoints without generating a keypair.
+	deps := router.Deps{DB: conn, CookieSec: envDefault("COOKIE_SECURE", "") != ""}
+	if priv, pub := os.Getenv("JWT_PRIVATE_KEY"), os.Getenv("JWT_PUBLIC_KEY"); priv != "" && pub != "" {
+		kp, err := auth.LoadKeyPair(priv, pub)
+		if err != nil {
+			return err
+		}
+		users, err := store.NewMemoryUserRepo()
+		if err != nil {
+			return err
+		}
+		deps.KP = kp
+		deps.Users = users
+		deps.Blacklist = blacklist.NewMemory()
+		slog.Info("auth endpoints enabled", "seeded_users", 3)
+	} else {
+		slog.Warn("JWT_PRIVATE_KEY/JWT_PUBLIC_KEY not set — /api/auth/* endpoints disabled")
+	}
+
 	srv := &http.Server{
 		Addr:         ":" + port,
-		Handler:      router.New(conn),
+		Handler:      router.NewWithDeps(deps),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
