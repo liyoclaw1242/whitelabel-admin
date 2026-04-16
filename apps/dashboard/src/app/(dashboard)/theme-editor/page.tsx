@@ -918,8 +918,11 @@ export default function ThemeEditorPage() {
     warningTimeoutRef.current = setTimeout(() => setWarning(null), 3000);
   }, []);
 
-  // Load custom themes from localStorage on mount
+  // Load custom themes from localStorage on mount. useEffect is required
+  // here (not lazy useState init) to avoid SSR/hydration mismatch — the
+  // server renders [] and the client reads localStorage only after mount.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCustomThemes(loadCustomThemes());
   }, []);
 
