@@ -6,14 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@sentry/nextjs": "^10.48.0",
     "@whitelabel/otel": "workspace:*",
     "@whitelabel/ui": "workspace:*",
     "lucide-react": "^1.6.0",
-    "next": "canary",
+    "next": "16.2.1-canary.31",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "3.8.0",
@@ -27,7 +27,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "eslint": "^9.0.0",
-    "eslint-config-next": "canary",
+    "eslint-config-next": "16.2.1-canary.7",
     "postcss": "^8.4.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0"
