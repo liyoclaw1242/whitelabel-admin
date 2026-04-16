@@ -5,10 +5,15 @@
     "dev": "pnpm --filter dashboard dev",
     "build": "pnpm --filter dashboard build",
     "lint": "pnpm --filter dashboard lint",
+    "test": "pnpm --filter dashboard test",
+    "gen:api-types": "openapi-typescript docs/api/openapi.yaml -o apps/dashboard/src/lib/api-types.ts",
     "storybook": "pnpm --filter storybook dev",
     "build-storybook": "pnpm --filter storybook build"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
   }
 }
