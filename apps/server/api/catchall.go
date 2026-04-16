@@ -8,32 +8,56 @@
 package handler
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/db"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/router"
 )
 
 var (
 	initOnce sync.Once
 	handler  http.Handler
+	otelProv *otel.Provider
 )
 
 // Handler is the Vercel entry function. It lazily builds the chi router on
 // first request and reuses it across invocations within the same serverless
 // instance.
+//
+// Vercel serverless may terminate the process without running atexit hooks,
+// so we ForceFlush the OTel batcher on every invocation. 2s is the budget
+// per spec; shorter than Vercel's hard cold-kill grace period.
 func Handler(w http.ResponseWriter, r *http.Request) {
 	initOnce.Do(initHandler)
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		if err := otelProv.ForceFlush(ctx); err != nil {
+			slog.Warn("otel ForceFlush error", "error", err)
+		}
+	}()
 	handler.ServeHTTP(w, r)
 }
 
 func initHandler() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
+
+	var err error
+	otelProv, err = otel.Init(context.Background(), otel.Config{
+		ServiceName:    "whitelabel-api",
+		ServiceVersion: envDefault("VERCEL_GIT_COMMIT_SHA", "dev"),
+	})
+	if err != nil {
+		slog.Error("otel.Init failed — continuing without tracing", "error", err)
+	}
 
 	var conn health.Pinger
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
@@ -49,4 +73,11 @@ func initHandler() {
 	}
 
 	handler = router.New(conn)
+}
+
+func envDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

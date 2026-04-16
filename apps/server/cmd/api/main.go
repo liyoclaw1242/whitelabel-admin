@@ -16,6 +16,7 @@ import (
 
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/db"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/router"
 )
 
@@ -34,6 +35,19 @@ func run() error {
 	if port == "" {
 		port = "8080"
 	}
+
+	otelProv, err := otel.Init(context.Background(), otel.Config{
+		ServiceName:    "whitelabel-api",
+		ServiceVersion: envDefault("VERCEL_GIT_COMMIT_SHA", "dev"),
+	})
+	if err != nil {
+		slog.Error("otel.Init failed — continuing without tracing", "error", err)
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = otelProv.Shutdown(ctx)
+	}()
 
 	// DATABASE_URL is optional. When unset, /api/health gracefully
 	// reports {"db":"not_configured"} instead of crashing startup —
@@ -79,4 +93,11 @@ func run() error {
 	}
 	slog.Info("server stopped gracefully")
 	return nil
+}
+
+func envDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
+	otelmw "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
 )
 
 // New returns a chi.Mux wired with the request-logging middleware and the
@@ -21,8 +22,8 @@ import (
 func New(db health.Pinger) *chi.Mux {
 	r := chi.NewRouter()
 
+	r.Use(otelmw.Middleware) // OpenTelemetry span + W3C traceparent propagation
 	r.Use(loggingMiddleware)
-	// TODO(#N_OTEL): r.Use(otel.Middleware)     — OpenTelemetry span wiring
 	// TODO(#N_AUDIT): r.Use(audit.Middleware)   — audit log capture
 	// TODO(#N_TENANT): r.Use(tenant.Middleware) — JWT → tenant scoping
 
