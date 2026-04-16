@@ -260,3 +260,47 @@ func TestIntegration_LoginThenMe(t *testing.T) {
 		t.Fatalf("me status = %d", rec.Code)
 	}
 }
+
+func TestMeHandler_AccessorReturnsFunction(t *testing.T) {
+	h, _, _ := setup(t)
+	if h.MeHandler() == nil {
+		t.Error("MeHandler returned nil")
+	}
+}
+
+func TestMe_UserDeletedBetweenLoginAndMe_401(t *testing.T) {
+	_, r, kp := setup(t)
+	c := auth.NewClaims("user-ghost", "tenant-1", []string{"admin"}, store.PermsAdmin)
+	tok, _ := kp.Sign(c)
+	req := httptest.NewRequest(http.MethodGet, "/api/auth/me-authed", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestRefresh_InvalidCookieValue_401(t *testing.T) {
+	_, r, _ := setup(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
+	req.AddCookie(&http.Cookie{Name: RefreshCookieName, Value: "not-a-jwt"})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+}
+
+func TestRefresh_UserDeletedBeforeRefresh_401(t *testing.T) {
+	_, r, kp := setup(t)
+	rc := auth.NewRefreshClaims("user-ghost", "tenant-1")
+	tok, _ := kp.SignRefresh(rc)
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/refresh", nil)
+	req.AddCookie(&http.Cookie{Name: RefreshCookieName, Value: tok})
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want 401", rec.Code)
+	}
+}
