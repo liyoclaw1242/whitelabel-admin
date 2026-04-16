@@ -9,27 +9,61 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/auth"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/authapi"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/blacklist"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/middleware"
 	otelmw "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/store"
 )
+
+// Deps bundles the cross-cutting singletons the router needs.
+// Any field may be nil — the router degrades gracefully (auth routes
+// are only mounted when KP+Users+Blacklist are all provided).
+type Deps struct {
+	DB        health.Pinger
+	KP        *auth.KeyPair
+	Users     store.UserRepo
+	Blacklist blacklist.Store
+	CookieSec bool // Secure cookie flag — true in prod, false in local http
+}
 
 // New returns a chi.Mux wired with the request-logging middleware and the
 // /api/health endpoint. Passing a nil Pinger signals "DATABASE_URL unset" —
 // health responds with 503 + {"db":"not_configured"} (graceful degradation).
-//
-// Additional middleware mount points are reserved below for follow-up tasks;
-// do NOT implement them here.
 func New(db health.Pinger) *chi.Mux {
+	return NewWithDeps(Deps{DB: db})
+}
+
+// NewWithDeps is the full constructor. When auth deps are supplied, it
+// mounts the /api/auth/* endpoints (login/refresh/logout/me).
+func NewWithDeps(d Deps) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(otelmw.Middleware) // OpenTelemetry span + W3C traceparent propagation
 	r.Use(loggingMiddleware)
 	// TODO(#N_AUDIT): r.Use(audit.Middleware)   — audit log capture
-	// TODO(#N_TENANT): r.Use(tenant.Middleware) — JWT → tenant scoping
 
 	// /api/health is intentionally NOT behind auth middleware —
 	// external probes (Vercel, uptime monitors) must reach it.
-	r.Get("/api/health", health.Handler(db))
+	r.Get("/api/health", health.Handler(d.DB))
+
+	if d.KP != nil && d.Users != nil && d.Blacklist != nil {
+		// Login limiter: 5 req/min per (ip+email) composite key.
+		loginLimiter := middleware.NewLimiter(5, time.Minute)
+		h := &authapi.Handlers{
+			KP:        d.KP,
+			Users:     d.Users,
+			Blacklist: d.Blacklist,
+			Limiter:   loginLimiter,
+			CookieSec: d.CookieSec,
+		}
+		h.Mount(r)
+
+		// /api/auth/me sits behind AuthContext (Bearer JWT required).
+		r.With(middleware.AuthContext(d.KP)).Get("/api/auth/me", h.MeHandler())
+	}
 
 	return r
 }
