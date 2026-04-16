@@ -1,0 +1,1019 @@
+openapi: 3.1.0
+info:
+  title: Whitelabel Admin API
+  version: 0.1.0
+  summary: Backend API for the Whitelabel Admin dashboard.
+  description: |
+    Draft OpenAPI spec serving as the single source of truth for frontend
+    type generation (openapi-typescript) and backend handler implementation.
+
+    Conventions:
+      - All protected endpoints require `Authorization: Bearer <jwt>`.
+      - Tenant scoping is derived from the `tenant_id` claim in the JWT.
+        Clients never pass `tenant_id` in URL or body.
+      - All 4xx / 5xx responses use RFC 7807 (`application/problem+json`).
+      - Pagination is offset-based via `page` (1-indexed) and `limit`.
+      - Sort is a single field expression: `?sort=created_at:desc`.
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  contact:
+    name: Whitelabel Admin Team
+
+servers:
+  - url: https://api.whitelabel-admin.example.com
+    description: Production
+  - url: https://preview.api.whitelabel-admin.example.com
+    description: Preview (per-PR)
+  - url: http://localhost:8080
+    description: Local development
+
+tags:
+  - name: Auth
+    description: Authentication & session management.
+  - name: Users
+    description: User management within a tenant.
+  - name: Items
+    description: Generic domain object (placeholder for the product's core entity).
+  - name: Tenants
+    description: Tenant administration (super-admin + self-introspection).
+  - name: AuditLogs
+    description: Append-only record of administrative actions.
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Exchange credentials for a JWT pair.
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: alice@example.com
+              password: hunter2!
+      responses:
+        '200':
+          description: Authenticated. Returns access + refresh tokens.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+              example:
+                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                access_expires_in: 900
+                refresh_expires_in: 2592000
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Exchange a refresh token for a new access token.
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: New access token issued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+              example:
+                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                access_expires_in: 900
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke the caller's refresh token.
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '204':
+          description: Refresh token revoked. No content returned.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/users:
+    get:
+      tags: [Users]
+      summary: List users in the caller's tenant.
+      operationId: listUsers
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortParam'
+      responses:
+        '200':
+          description: Paginated list of users.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPage'
+              example:
+                data:
+                  - id: 01HZ7S9GYP7V2E8GNQ0F5RHXK1
+                    email: alice@example.com
+                    name: Alice Chen
+                    role: admin
+                    tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                    created_at: '2026-04-10T09:15:00Z'
+                    updated_at: '2026-04-12T11:30:00Z'
+                page: 1
+                limit: 20
+                total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Users]
+      summary: Create a user in the caller's tenant. Admin only.
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              email: bob@example.com
+              name: Bob Lee
+              role: member
+              password: initial-pw!
+      responses:
+        '201':
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 01HZ7SBCYN2J6R4QHCT5N8M0WX
+                email: bob@example.com
+                name: Bob Lee
+                role: member
+                tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                created_at: '2026-04-16T17:20:00Z'
+                updated_at: '2026-04-16T17:20:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Users]
+      summary: Fetch a user by id.
+      operationId: getUser
+      responses:
+        '200':
+          description: The requested user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 01HZ7S9GYP7V2E8GNQ0F5RHXK1
+                email: alice@example.com
+                name: Alice Chen
+                role: admin
+                tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                created_at: '2026-04-10T09:15:00Z'
+                updated_at: '2026-04-12T11:30:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Users]
+      summary: Update fields on a user.
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            example:
+              name: Alice Chen-Wu
+              role: admin
+      responses:
+        '200':
+          description: Updated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 01HZ7S9GYP7V2E8GNQ0F5RHXK1
+                email: alice@example.com
+                name: Alice Chen-Wu
+                role: admin
+                tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                created_at: '2026-04-10T09:15:00Z'
+                updated_at: '2026-04-16T17:25:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Users]
+      summary: Soft-delete a user.
+      operationId: deleteUser
+      responses:
+        '204':
+          description: User deleted. No content returned.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/items:
+    get:
+      tags: [Items]
+      summary: List items in the caller's tenant.
+      operationId: listItems
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortParam'
+      responses:
+        '200':
+          description: Paginated list of items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemPage'
+              example:
+                data:
+                  - id: 01HZ80BDKX3F2N7QKVD2ZEFPCW
+                    name: Blue Widget
+                    description: A widget, coloured blue.
+                    tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                    created_at: '2026-04-15T08:00:00Z'
+                    updated_at: '2026-04-15T08:00:00Z'
+                page: 1
+                limit: 20
+                total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Items]
+      summary: Create an item.
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItemRequest'
+            example:
+              name: Red Widget
+              description: A widget, coloured red.
+      responses:
+        '201':
+          description: Item created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+              example:
+                id: 01HZ80C7V3YP5K8NC1W2HTFCAR
+                name: Red Widget
+                description: A widget, coloured red.
+                tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                created_at: '2026-04-16T17:30:00Z'
+                updated_at: '2026-04-16T17:30:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/items/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [Items]
+      summary: Fetch an item by id.
+      operationId: getItem
+      responses:
+        '200':
+          description: The requested item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+              example:
+                id: 01HZ80BDKX3F2N7QKVD2ZEFPCW
+                name: Blue Widget
+                description: A widget, coloured blue.
+                tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                created_at: '2026-04-15T08:00:00Z'
+                updated_at: '2026-04-15T08:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Items]
+      summary: Update fields on an item.
+      operationId: updateItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItemRequest'
+            example:
+              description: A widget, very blue.
+      responses:
+        '200':
+          description: Updated item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+              example:
+                id: 01HZ80BDKX3F2N7QKVD2ZEFPCW
+                name: Blue Widget
+                description: A widget, very blue.
+                tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                created_at: '2026-04-15T08:00:00Z'
+                updated_at: '2026-04-16T17:32:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      tags: [Items]
+      summary: Soft-delete an item.
+      operationId: deleteItem
+      responses:
+        '204':
+          description: Item deleted. No content returned.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/tenants/current:
+    get:
+      tags: [Tenants]
+      summary: Return the tenant the caller's JWT belongs to.
+      operationId: getCurrentTenant
+      responses:
+        '200':
+          description: The caller's tenant.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+              example:
+                id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                name: Acme Corp
+                slug: acme
+                created_at: '2026-01-02T00:00:00Z'
+                updated_at: '2026-03-20T10:00:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/tenants:
+    get:
+      tags: [Tenants]
+      summary: List all tenants. Super-admin only.
+      operationId: listTenants
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/SortParam'
+      responses:
+        '200':
+          description: Paginated list of tenants.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantPage'
+              example:
+                data:
+                  - id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                    name: Acme Corp
+                    slug: acme
+                    created_at: '2026-01-02T00:00:00Z'
+                    updated_at: '2026-03-20T10:00:00Z'
+                page: 1
+                limit: 20
+                total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Tenants]
+      summary: Create a new tenant. Super-admin only.
+      operationId: createTenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+            example:
+              name: Beta Co
+              slug: beta
+      responses:
+        '201':
+          description: Tenant created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tenant'
+              example:
+                id: 01HZ80DX5J2HM9QN7VTGCB3PER
+                name: Beta Co
+                slug: beta
+                created_at: '2026-04-16T17:35:00Z'
+                updated_at: '2026-04-16T17:35:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /api/audit-logs:
+    get:
+      tags: [AuditLogs]
+      summary: List audit log entries scoped to the caller's tenant.
+      operationId: listAuditLogs
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: actor_id
+          in: query
+          description: Filter to entries produced by this actor.
+          required: false
+          schema:
+            type: string
+            format: ulid
+        - name: action
+          in: query
+          description: Filter to entries with this action verb (e.g. `user.create`).
+          required: false
+          schema:
+            type: string
+        - name: target_type
+          in: query
+          description: Filter to entries whose target is of this type (e.g. `user`, `item`).
+          required: false
+          schema:
+            type: string
+        - name: target_id
+          in: query
+          description: Filter to entries targeting this specific record.
+          required: false
+          schema:
+            type: string
+            format: ulid
+      responses:
+        '200':
+          description: Paginated list of audit log entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogPage'
+              example:
+                data:
+                  - id: 01HZ80F2G6K3N9R7VTYF5HPE8X
+                    actor_id: 01HZ7S9GYP7V2E8GNQ0F5RHXK1
+                    tenant_id: 01HZ0RZ3T1HFGJ2EKD6M1Q3V2B
+                    action: user.update
+                    target_type: user
+                    target_id: 01HZ7SBCYN2J6R4QHCT5N8M0WX
+                    metadata:
+                      changed_fields: [name, role]
+                    created_at: '2026-04-16T17:26:00Z'
+                page: 1
+                limit: 20
+                total: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token. Claims include `sub` (user id), `tenant_id`,
+        `role`, and standard (`iat`, `exp`). Tenant scoping for every
+        protected endpoint is derived from `tenant_id`.
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      description: ULID identifier for the resource.
+      schema:
+        type: string
+        format: ulid
+        minLength: 26
+        maxLength: 26
+      example: 01HZ7S9GYP7V2E8GNQ0F5RHXK1
+
+    PageParam:
+      name: page
+      in: query
+      required: false
+      description: 1-indexed page number.
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      example: 1
+
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      description: Page size. Hard max 100.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      example: 20
+
+    SortParam:
+      name: sort
+      in: query
+      required: false
+      description: |
+        Sort expression as `<field>:<asc|desc>`. Default `created_at:desc`.
+      schema:
+        type: string
+        pattern: '^[a-z_]+:(asc|desc)$'
+        default: 'created_at:desc'
+      example: created_at:desc
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid credentials.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://whitelabel-admin.example.com/errors/unauthorized
+            title: Unauthorized
+            status: 401
+            detail: Missing or expired access token.
+            instance: /api/users
+
+    Forbidden:
+      description: Authenticated but lacks permission for this operation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://whitelabel-admin.example.com/errors/forbidden
+            title: Forbidden
+            status: 403
+            detail: Admin role required.
+            instance: /api/users
+
+    NotFound:
+      description: The requested resource does not exist (or isn't visible to the caller's tenant).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://whitelabel-admin.example.com/errors/not-found
+            title: Not Found
+            status: 404
+            detail: User not found.
+            instance: /api/users/01HZ7S9GYP7V2E8GNQ0F5RHXK1
+
+    Conflict:
+      description: The request conflicts with existing state (duplicate, version mismatch, etc.).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://whitelabel-admin.example.com/errors/conflict
+            title: Conflict
+            status: 409
+            detail: A user with this email already exists.
+            instance: /api/users
+
+    ValidationError:
+      description: Request body or parameters failed schema validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ValidationProblem'
+          example:
+            type: https://whitelabel-admin.example.com/errors/validation
+            title: Validation Failed
+            status: 422
+            detail: One or more fields are invalid.
+            instance: /api/users
+            errors:
+              - field: email
+                code: format
+                message: Must be a valid email.
+              - field: password
+                code: min_length
+                message: Minimum length is 8 characters.
+
+    InternalServerError:
+      description: Unexpected error. Correlate with logs via `instance`.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://whitelabel-admin.example.com/errors/internal
+            title: Internal Server Error
+            status: 500
+            detail: An unexpected error occurred.
+            instance: /api/users
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 7807 problem detail.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI reference identifying the problem type.
+        title:
+          type: string
+          description: Short, human-readable summary of the problem type.
+        status:
+          type: integer
+          description: HTTP status code.
+        detail:
+          type: string
+          description: Human-readable explanation specific to this occurrence.
+        instance:
+          type: string
+          description: URI reference identifying this specific occurrence.
+
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            errors:
+              type: array
+              description: Per-field validation errors.
+              items:
+                type: object
+                required: [field, code, message]
+                properties:
+                  field:
+                    type: string
+                    description: JSON pointer or field name.
+                  code:
+                    type: string
+                    description: Machine-readable code (e.g. `required`, `format`, `min_length`).
+                  message:
+                    type: string
+                    description: Human-readable message.
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          format: password
+
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token:
+          type: string
+
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, access_expires_in, refresh_expires_in]
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        access_expires_in:
+          type: integer
+          description: Access token lifetime in seconds.
+        refresh_expires_in:
+          type: integer
+          description: Refresh token lifetime in seconds.
+
+    AccessToken:
+      type: object
+      required: [access_token, access_expires_in]
+      properties:
+        access_token:
+          type: string
+        access_expires_in:
+          type: integer
+
+    UserRole:
+      type: string
+      enum: [super_admin, admin, member]
+      description: |
+        Role within a tenant. `super_admin` is cross-tenant and granted
+        only via the `/api/tenants` endpoints.
+
+    User:
+      type: object
+      required: [id, email, name, role, tenant_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: ulid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        tenant_id:
+          type: string
+          format: ulid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateUserRequest:
+      type: object
+      required: [email, name, role, password]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/UserRole'
+        password:
+          type: string
+          minLength: 8
+          format: password
+
+    UpdateUserRequest:
+      type: object
+      description: All fields optional; fields omitted are left unchanged.
+      properties:
+        name:
+          type: string
+          minLength: 1
+        role:
+          $ref: '#/components/schemas/UserRole'
+
+    UserPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/User'
+
+    Item:
+      type: object
+      required: [id, name, tenant_id, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: ulid
+        name:
+          type: string
+        description:
+          type: string
+        tenant_id:
+          type: string
+          format: ulid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateItemRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+
+    UpdateItemRequest:
+      type: object
+      description: All fields optional.
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+
+    ItemPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Item'
+
+    Tenant:
+      type: object
+      required: [id, name, slug, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: ulid
+        name:
+          type: string
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          description: URL-safe short identifier, unique globally.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateTenantRequest:
+      type: object
+      required: [name, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        slug:
+          type: string
+          pattern: '^[a-z0-9-]+$'
+          minLength: 2
+          maxLength: 64
+
+    TenantPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/Tenant'
+
+    AuditLog:
+      type: object
+      required:
+        - id
+        - actor_id
+        - tenant_id
+        - action
+        - target_type
+        - target_id
+        - created_at
+      properties:
+        id:
+          type: string
+          format: ulid
+        actor_id:
+          type: string
+          format: ulid
+          description: User who performed the action.
+        tenant_id:
+          type: string
+          format: ulid
+          description: Tenant the action happened within.
+        action:
+          type: string
+          description: Dotted verb, e.g. `user.create`, `item.delete`.
+          pattern: '^[a-z_]+\.[a-z_]+$'
+        target_type:
+          type: string
+          description: Entity kind the action targets (e.g. `user`, `item`, `tenant`).
+        target_id:
+          type: string
+          format: ulid
+        metadata:
+          type: object
+          description: Free-form JSON payload; shape depends on `action`.
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+
+    AuditLogPage:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuditLog'
+
+    PageMeta:
+      type: object
+      required: [page, limit, total]
+      properties:
+        page:
+          type: integer
+          minimum: 1
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of records matching the query.
