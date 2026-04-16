@@ -4,7 +4,7 @@
 
 ### Core Domains
 - **Theming**: The central domain. Manages color tokens (OKLch), theme presets, light/dark mode, typography, spacing, shadows. Persisted to localStorage. This is the product's primary value proposition — white-label customization.
-- **Backend Service**: Go API server (`apps/server`) using net/http stdlib. Connects to Turso (LibSQL) for persistence. Deployed to Fly.io. Proxied through Next.js rewrites to avoid CORS.
+- **Backend Service**: Go API server (`apps/server`) using net/http stdlib. Connects to Turso (LibSQL) for persistence. Deployed to Vercel Serverless. Proxied through Next.js rewrites to avoid CORS.
 - **Dashboard**: Admin overview with stat cards (users, activity, revenue, pending). Currently static/hardcoded data.
 - **Navigation**: Sidebar + header shell with breadcrumbs, search, user menu, color mode toggle.
 - **UI Components**: Shared component library (`@whitelabel/ui`) with 60+ shadcn v4 components, framework-agnostic.
@@ -45,7 +45,7 @@ graph LR
 | Runtime | Node.js | 20+ |
 | Backend | Go (net/http stdlib) | 1.22+ |
 | Database | Turso (LibSQL) | — |
-| Backend Deploy | Fly.io | — |
+| Backend Deploy | Vercel Serverless | — |
 | Frontend Deploy | Vercel | — |
 | API Proxy | Next.js rewrites (`/api/*` → Go) | — |
 | Persistence (client) | localStorage | — |
@@ -78,14 +78,14 @@ sequenceDiagram
 sequenceDiagram
   participant Browser
   participant Vercel as Vercel (Next.js)
-  participant Fly as Fly.io (Go)
+  participant Go as Vercel Serverless (Go)
   participant Turso as Turso (LibSQL)
 
   Browser->>Vercel: GET /api/health
-  Vercel->>Fly: proxy via rewrites
-  Fly->>Turso: DB ping
-  Turso-->>Fly: OK
-  Fly-->>Vercel: {"status":"ok","db":"connected"}
+  Vercel->>Go: proxy via rewrites
+  Go->>Turso: DB ping
+  Turso-->>Go: OK
+  Go-->>Vercel: {"status":"ok","db":"connected"}
   Vercel-->>Browser: 200 JSON
 ```
 
@@ -105,7 +105,6 @@ whitelabel-admin/
       main.go                     # net/http server, Turso connection, /api/health
       go.mod                      # Go module
       Dockerfile                  # Multi-stage build (golang → alpine)
-      fly.toml                    # Fly.io deployment config
     storybook/                    # Storybook 8 + React + Vite (planned, see #85)
       .storybook/                 # main.ts, preview.tsx (ThemeProvider decorator + toolbar)
       src/
@@ -190,7 +189,7 @@ Long-term product (not MVP). Theme editor is the core feature. Dashboard, Users 
 - 2026-03-31: 42 tweakcn presets imported with category tags
 - 2026-04-01: Preset selector with grid, category filter, search
 - 2026-04-09: OTel-first log monitoring (#80) — raw `@opentelemetry/sdk-node` (not `@vercel/otel`), `packages/otel` shared config, Sentry for client-side errors, Axiom or Grafana Cloud as managed OTLP backend
-- 2026-04-14: Go backend on Fly.io + Turso (#100) — net/http stdlib (no framework), LibSQL via Turso, Next.js rewrites as API proxy. OpenAPI for type sharing (deferred until first business endpoint)
+- 2026-04-14: Go backend on Vercel Serverless + Turso (#100) — net/http stdlib (no framework), LibSQL via Turso, Next.js rewrites as API proxy. OpenAPI for type sharing (deferred until first business endpoint)
 
 ### Known Tech Debt
 | Item | Impact | Priority |
@@ -229,7 +228,7 @@ See `design-decisions.md` for the full canonical record. Key principles:
 | localStorage | Corrupt JSON | try/catch in load, returns null | Falls back to defaultTheme | Loses customization |
 | CSS injection | `<style>` element fails | — | Theme vars fall back to globals.css defaults | Visual glitch, recoverable on reload |
 | Legacy migration | Old single-mode config in storage | `migrateLegacyTheme()` auto-converts | Converts to dual-mode, dark falls back to defaults | Dark mode may look different than expected |
-| Go server | Crash/OOM | Fly.io health check | Auto-restart (Fly machines v2) | API calls return 502 briefly |
+| Go server | Crash/OOM | Vercel function invocation error | Auto-retry on next invocation (stateless) | API calls return 502 briefly |
 | Go server | Turso unreachable | `/api/health` returns 503 | Retry with backoff, log error | API features degraded, frontend still works (client-side theme) |
 | Next.js proxy | `BACKEND_URL` missing | Build warning | Frontend works, API calls fail with Next.js error | API features unavailable |
-| Fly.io | Region outage | Fly.io status page | Manual failover or wait | API unavailable, frontend unaffected |
+| Vercel Serverless | Region outage | Vercel status page | Manual failover or wait | API unavailable, frontend unaffected |
