@@ -37,15 +37,15 @@ func Query(ctx context.Context, q Querier, name, stmt string, args ...any) (*sql
 // should already pass args separately, so this is a belt-and-braces guard.
 func Sanitize(stmt string) string {
 	out := make([]byte, 0, len(stmt))
-	inString := false
 	for i := 0; i < len(stmt); i++ {
 		c := stmt[i]
 		if c == '\'' {
-			inString = !inString
+			// Consume the whole string literal, emit a single '?'.
 			out = append(out, '?')
-			continue
-		}
-		if inString {
+			i++
+			for i < len(stmt) && stmt[i] != '\'' {
+				i++
+			}
 			continue
 		}
 		if c >= '0' && c <= '9' {
