@@ -1,0 +1,41 @@
+name: stale-branch-cleanup
+
+# Agent-driven development produces many short-lived branches
+# (agent/*, qa/*). This workflow deletes any such remote branch
+# that has already been merged into main.
+
+on:
+  schedule:
+    - cron: '0 17 * * *'   # daily at 01:00 JST / 17:00 UTC
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Delete merged agent/* and qa/* branches
+        run: |
+          set -euo pipefail
+          git fetch --prune origin
+          deleted=0
+          skipped=0
+          for branch in $(git branch -r --merged origin/main \
+            | sed -E 's|^[[:space:]]+||' \
+            | grep -E '^origin/(agent|qa)/' \
+            | sed -E 's|^origin/||'); do
+              if git push origin --delete "$branch"; then
+                echo "deleted: $branch"
+                deleted=$((deleted + 1))
+              else
+                echo "skipped (delete failed): $branch"
+                skipped=$((skipped + 1))
+              fi
+          done
+          echo ""
+          echo "Summary: deleted=$deleted skipped=$skipped"
