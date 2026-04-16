@@ -1,5 +1,6 @@
 "use client";
 
+import { faro } from "@grafana/faro-web-sdk";
 import NextError from "next/error";
 import { useEffect } from "react";
 
@@ -9,8 +10,11 @@ export default function GlobalError({
   error: Error & { digest?: string };
 }) {
   useEffect(() => {
-    // Placeholder until Faro integration (#140) takes over.
-    console.error(error);
+    if (typeof faro !== "undefined" && faro.api?.pushError) {
+      faro.api.pushError(error);
+    } else {
+      console.error(error);
+    }
   }, [error]);
 
   return (
