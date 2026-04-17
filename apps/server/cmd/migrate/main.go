@@ -19,7 +19,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 
-	migrations "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/migrations"
+	migrations "github.com/liyoclaw1242/whitelabel-admin/apps/server/migrations"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 		log.Fatal("DATABASE_URL env required")
 	}
 
-	source, err := iofs.New(migrations.FS, "migrations")
+	source, err := iofs.New(migrations.FS, ".")
 	if err != nil {
 		log.Fatalf("iofs: %v", err)
 	}
