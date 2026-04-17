@@ -1,0 +1,110 @@
+{
+  "dashboard": {
+    "title": "Auth Monitor — whitelabel-api",
+    "uid": "auth-monitor-whitelabel",
+    "tags": ["whitelabel", "auth", "ops"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": { "from": "now-1h", "to": "now" },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Login Success vs Failure Rate",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "targets": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" && span.http.status_code >= 200 && span.http.status_code < 300 } | rate()",
+            "legendFormat": "login success"
+          },
+          {
+            "refId": "B",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" && span.http.status_code >= 400 } | rate()",
+            "legendFormat": "login failure"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "reqps" }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Refresh Rotation Health",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "targets": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" && span.http.status_code >= 200 && span.http.status_code < 300 } | rate()",
+            "legendFormat": "refresh success"
+          },
+          {
+            "refId": "B",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" && span.http.status_code >= 400 } | rate()",
+            "legendFormat": "refresh failure"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "reqps" }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Rate Limit Hits (429s)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "targets": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.status_code = 429 } | rate() by (span.http.route)",
+            "legendFormat": "429 {{span.http.route}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "reqps" }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Audit Log Anomalies (admin actions)",
+        "type": "logs",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "{service_name=\"whitelabel-api\"} | json | action=~\"delete|update\"",
+            "legendFormat": ""
+          }
+        ]
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "DS_TEMPO",
+          "type": "datasource",
+          "query": "tempo",
+          "current": { "text": "grafanacloud-traces", "value": "grafanacloud-traces" }
+        },
+        {
+          "name": "DS_LOKI",
+          "type": "datasource",
+          "query": "loki",
+          "current": { "text": "grafanacloud-logs", "value": "grafanacloud-logs" }
+        }
+      ]
+    },
+    "schemaVersion": 39
+  },
+  "overwrite": true
+}
