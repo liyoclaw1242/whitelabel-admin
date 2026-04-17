@@ -14,7 +14,7 @@ import (
 
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/auth"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/blacklist"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/store"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo/memory"
 )
 
 type stubPinger struct{ err error }
@@ -65,7 +65,7 @@ func TestNewWithDeps_MountsAuthEndpoints(t *testing.T) {
 	priv := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER}))
 	pub := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
 	kp, _ := auth.LoadKeyPair(priv, pub)
-	users, _ := store.NewMemoryUserRepo()
+	users, _ := memory.NewUserRepo()
 
 	r := NewWithDeps(Deps{
 		DB:        &stubPinger{err: nil},

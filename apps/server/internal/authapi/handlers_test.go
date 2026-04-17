@@ -18,7 +18,7 @@ import (
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/auth"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/blacklist"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/middleware"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/store"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo/memory"
 )
 
 func setup(t *testing.T) (*Handlers, *chi.Mux, *auth.KeyPair) {
@@ -30,7 +30,7 @@ func setup(t *testing.T) (*Handlers, *chi.Mux, *auth.KeyPair) {
 	pub := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
 	kp, _ := auth.LoadKeyPair(priv, pub)
 
-	users, _ := store.NewMemoryUserRepo()
+	users, _ := memory.NewUserRepo()
 	h := &Handlers{
 		KP:        kp,
 		Users:     users,
@@ -135,7 +135,7 @@ func TestLogin_RateLimit_429(t *testing.T) {
 	priv := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privDER}))
 	pub := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}))
 	kp, _ := auth.LoadKeyPair(priv, pub)
-	users, _ := store.NewMemoryUserRepo()
+	users, _ := memory.NewUserRepo()
 
 	h := &Handlers{
 		KP: kp, Users: users, Blacklist: blacklist.NewMemory(),
@@ -222,7 +222,7 @@ func TestRefresh_MissingCookie_401(t *testing.T) {
 
 func TestMe_HappyPath(t *testing.T) {
 	_, r, kp := setup(t)
-	c := auth.NewClaims("user-admin", "tenant-1", []string{"admin"}, store.PermsAdmin)
+	c := auth.NewClaims("user-admin", "tenant-1", []string{"admin"}, []string{"users:read", "users:write", "items:read", "items:write", "audit:read"})
 	tok, _ := kp.Sign(c)
 	req := httptest.NewRequest(http.MethodGet, "/api/auth/me-authed", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)
@@ -270,7 +270,7 @@ func TestMeHandler_AccessorReturnsFunction(t *testing.T) {
 
 func TestMe_UserDeletedBetweenLoginAndMe_401(t *testing.T) {
 	_, r, kp := setup(t)
-	c := auth.NewClaims("user-ghost", "tenant-1", []string{"admin"}, store.PermsAdmin)
+	c := auth.NewClaims("user-ghost", "tenant-1", []string{"admin"}, []string{"users:read", "users:write", "items:read", "items:write", "audit:read"})
 	tok, _ := kp.Sign(c)
 	req := httptest.NewRequest(http.MethodGet, "/api/auth/me-authed", nil)
 	req.Header.Set("Authorization", "Bearer "+tok)

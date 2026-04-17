@@ -15,7 +15,7 @@ import (
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/middleware"
 	otelmw "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/store"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo"
 )
 
 // Deps bundles the cross-cutting singletons the router needs.
@@ -24,9 +24,10 @@ import (
 type Deps struct {
 	DB        health.Pinger
 	KP        *auth.KeyPair
-	Users     store.UserRepo
+	Users     repo.UserRepo
 	Blacklist blacklist.Store
-	CookieSec bool // Secure cookie flag — true in prod, false in local http
+	AuditRepo repo.AuditRepo
+	CookieSec bool
 }
 
 // New returns a chi.Mux wired with the request-logging middleware and the
@@ -43,7 +44,9 @@ func NewWithDeps(d Deps) *chi.Mux {
 
 	r.Use(otelmw.Middleware) // OpenTelemetry span + W3C traceparent propagation
 	r.Use(loggingMiddleware)
-	// TODO(#N_AUDIT): r.Use(audit.Middleware)   — audit log capture
+	if d.AuditRepo != nil {
+		r.Use(middleware.Audit(d.AuditRepo))
+	}
 
 	// /api/health is intentionally NOT behind auth middleware —
 	// external probes (Vercel, uptime monitors) must reach it.

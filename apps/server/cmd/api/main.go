@@ -19,8 +19,9 @@ import (
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/db"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
+	pgxrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo/pgx"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/router"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/store"
+	memrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo/memory"
 )
 
 func main() {
@@ -56,34 +57,37 @@ func run() error {
 	// reports {"db":"not_configured"} instead of crashing startup —
 	// this lets Vercel previews boot before OPS wires the Neon URL.
 	var conn health.Pinger
+	deps := router.Deps{CookieSec: envDefault("COOKIE_SECURE", "") != ""}
+
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
-		d, err := db.Open(dbURL)
+		pool, err := db.OpenPool(context.Background(), dbURL)
 		if err != nil {
 			return err
 		}
-		defer d.Close()
-		conn = d
-		slog.Info("database connected")
+		defer pool.Close()
+		conn = &db.PoolPinger{Pool: pool}
+		deps.Users = pgxrepo.NewUserRepo(pool)
+		deps.AuditRepo = pgxrepo.NewAuditRepo(pool)
+		slog.Info("database connected (pgxpool)")
 	} else {
-		slog.Warn("DATABASE_URL not set — /api/health will report not_configured")
+		slog.Warn("DATABASE_URL not set — using memory repos")
+		users, err := memrepo.NewUserRepo()
+		if err != nil {
+			return err
+		}
+		deps.Users = users
 	}
+	deps.DB = conn
+	deps.Blacklist = blacklist.NewMemory()
 
-	// Auth deps — gracefully degrade when JWT keys aren't provided so local
-	// dev can iterate on non-auth endpoints without generating a keypair.
-	deps := router.Deps{DB: conn, CookieSec: envDefault("COOKIE_SECURE", "") != ""}
+	// Auth deps — gracefully degrade when JWT keys aren't provided.
 	if priv, pub := os.Getenv("JWT_PRIVATE_KEY"), os.Getenv("JWT_PUBLIC_KEY"); priv != "" && pub != "" {
 		kp, err := auth.LoadKeyPair(priv, pub)
 		if err != nil {
 			return err
 		}
-		users, err := store.NewMemoryUserRepo()
-		if err != nil {
-			return err
-		}
 		deps.KP = kp
-		deps.Users = users
-		deps.Blacklist = blacklist.NewMemory()
-		slog.Info("auth endpoints enabled", "seeded_users", 3)
+		slog.Info("auth endpoints enabled")
 	} else {
 		slog.Warn("JWT_PRIVATE_KEY/JWT_PUBLIC_KEY not set — /api/auth/* endpoints disabled")
 	}
