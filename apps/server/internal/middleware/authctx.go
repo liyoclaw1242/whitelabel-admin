@@ -6,6 +6,9 @@ import (
 	"net/http"
 	"strings"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/auth"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/httperr"
 )
@@ -42,7 +45,14 @@ func AuthContext(kp *auth.KeyPair) func(http.Handler) http.Handler {
 				httperr.WriteFor(w, r, httperr.Unauthorized("invalid or expired token"))
 				return
 			}
-			next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), claims)))
+			// Enrich the active OTel span with user/tenant for Tempo searchability.
+		if span := trace.SpanFromContext(r.Context()); span.SpanContext().IsValid() {
+			span.SetAttributes(
+				attribute.String("user.id", claims.Sub),
+				attribute.String("tenant.id", claims.TenantID),
+			)
+		}
+		next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), claims)))
 		})
 	}
 }
