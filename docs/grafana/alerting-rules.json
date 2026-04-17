@@ -1,0 +1,103 @@
+{
+  "folder": "whitelabel-alerts",
+  "interval": "1m",
+  "rules": [
+    {
+      "title": "High Login Failure Rate",
+      "condition": "C",
+      "for": "5m",
+      "annotations": {
+        "summary": "Login failure rate > 10% over 5 min",
+        "runbook": "docs/runbook.md#token-management"
+      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
+      "data": [
+        { "refId": "A", "datasourceUid": "${DS_TEMPO}", "model": { "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" } | rate()" }, "relativeTimeRange": { "from": 300, "to": 0 } },
+        { "refId": "B", "datasourceUid": "${DS_TEMPO}", "model": { "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" && span.http.status_code >= 400 } | rate()" }, "relativeTimeRange": { "from": 300, "to": 0 } },
+        { "refId": "C", "datasourceUid": "__expr__", "model": { "type": "math", "expression": "$B / $A", "conditions": [{ "evaluator": { "type": "gt", "params": [0.1] } }] } }
+      ]
+    },
+    {
+      "title": "High Error Rate",
+      "condition": "B",
+      "for": "5m",
+      "annotations": {
+        "summary": "API error rate > 1% sustained 5 min",
+        "runbook": "docs/runbook.md#disaster-recovery"
+      },
+      "labels": { "severity": "critical", "service": "whitelabel-api" },
+      "data": [
+        { "refId": "A", "datasourceUid": "${DS_TEMPO}", "model": { "query": "{ resource.service.name = \"whitelabel-api\" && status = error } | rate()" }, "relativeTimeRange": { "from": 300, "to": 0 } },
+        { "refId": "B", "datasourceUid": "__expr__", "model": { "type": "threshold", "expression": "$A", "conditions": [{ "evaluator": { "type": "gt", "params": [0.01] } }] } }
+      ]
+    },
+    {
+      "title": "High p95 Latency",
+      "condition": "B",
+      "for": "10m",
+      "annotations": {
+        "summary": "p95 latency > 500ms sustained 10 min",
+        "runbook": "docs/runbook.md#on-call-checklist"
+      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
+      "data": [
+        { "refId": "A", "datasourceUid": "${DS_TEMPO}", "model": { "query": "{ resource.service.name = \"whitelabel-api\" && kind = server } | quantile_over_time(duration, 0.95)" }, "relativeTimeRange": { "from": 600, "to": 0 } },
+        { "refId": "B", "datasourceUid": "__expr__", "model": { "type": "threshold", "expression": "$A", "conditions": [{ "evaluator": { "type": "gt", "params": [500] } }] } }
+      ]
+    },
+    {
+      "title": "Refresh Rotation Failure",
+      "condition": "C",
+      "for": "10m",
+      "annotations": {
+        "summary": "Refresh token rotation failure > 5% over 10 min",
+        "runbook": "docs/runbook.md#token-management"
+      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
+      "data": [
+        { "refId": "A", "datasourceUid": "${DS_TEMPO}", "model": { "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" } | rate()" }, "relativeTimeRange": { "from": 600, "to": 0 } },
+        { "refId": "B", "datasourceUid": "${DS_TEMPO}", "model": { "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" && span.http.status_code >= 400 } | rate()" }, "relativeTimeRange": { "from": 600, "to": 0 } },
+        { "refId": "C", "datasourceUid": "__expr__", "model": { "type": "math", "expression": "$B / $A", "conditions": [{ "evaluator": { "type": "gt", "params": [0.05] } }] } }
+      ]
+    },
+    {
+      "title": "Audit Log Write Failure",
+      "condition": "A",
+      "for": "5m",
+      "annotations": {
+        "summary": "Audit log write failure detected — compliance risk",
+        "runbook": "docs/runbook.md#disaster-recovery"
+      },
+      "labels": { "severity": "critical", "service": "whitelabel-api" },
+      "data": [
+        { "refId": "A", "datasourceUid": "${DS_LOKI}", "model": { "expr": "count_over_time({service_name=\"whitelabel-api\"} |= \"audit_log_write_error\" [5m])" }, "relativeTimeRange": { "from": 300, "to": 0 } }
+      ]
+    },
+    {
+      "title": "Neon Connection Pool Saturation",
+      "condition": "A",
+      "for": "5m",
+      "annotations": {
+        "summary": "Neon connection pool > 80% — scale risk",
+        "runbook": "docs/runbook.md#disaster-recovery"
+      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
+      "data": [
+        { "refId": "A", "datasourceUid": "${DS_LOKI}", "model": { "expr": "count_over_time({service_name=\"whitelabel-api\"} |= \"pool_exhausted\" or |= \"connection_timeout\" [5m])" }, "relativeTimeRange": { "from": 300, "to": 0 } }
+      ]
+    },
+    {
+      "title": "KV Blacklist Abnormal Growth",
+      "condition": "A",
+      "for": "1h",
+      "annotations": {
+        "summary": "KV blacklist > 1000 entries in 1 hour — possible abuse",
+        "runbook": "docs/runbook.md#token-management"
+      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
+      "data": [
+        { "refId": "A", "datasourceUid": "${DS_LOKI}", "model": { "expr": "count_over_time({service_name=\"whitelabel-api\"} |= \"kv_blacklist_add\" [1h]) > 1000" }, "relativeTimeRange": { "from": 3600, "to": 0 } }
+      ]
+    }
+  ]
+}
