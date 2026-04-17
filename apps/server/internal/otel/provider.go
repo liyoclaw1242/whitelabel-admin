@@ -83,6 +83,7 @@ func Init(ctx context.Context, cfg Config) (*Provider, error) {
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp),
+		sdktrace.WithSampler(NewSampler()),
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)

@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
@@ -160,5 +162,41 @@ func TestPropagatorCarrier_SetAndKeys(t *testing.T) {
 	keys := c.Keys()
 	if len(keys) != 1 {
 		t.Errorf("Keys len = %d, want 1", len(keys))
+	}
+}
+
+func TestMiddleware_AuthenticatedSpan_HasUserAndTenantAttributes(t *testing.T) {
+	rec := withRecorder(t)
+
+	r := chi.NewRouter()
+	r.Use(Middleware)
+	r.Get("/api/items", func(w http.ResponseWriter, r *http.Request) {
+		// Simulate what authctx middleware does after JWT verification:
+		span := trace.SpanFromContext(r.Context())
+		span.SetAttributes(
+			attribute.String("user.id", "user-123"),
+			attribute.String("tenant.id", "tenant-abc"),
+		)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/items", nil)
+	rw := httptest.NewRecorder()
+	r.ServeHTTP(rw, req)
+
+	spans := rec.Ended()
+	if len(spans) != 1 {
+		t.Fatalf("expected 1 span, got %d", len(spans))
+	}
+	attrs := spans[0].Attributes()
+	found := map[string]string{}
+	for _, a := range attrs {
+		found[string(a.Key)] = a.Value.AsString()
+	}
+	if found["user.id"] != "user-123" {
+		t.Errorf("user.id = %q, want user-123", found["user.id"])
+	}
+	if found["tenant.id"] != "tenant-abc" {
+		t.Errorf("tenant.id = %q, want tenant-abc", found["tenant.id"])
 	}
 }
