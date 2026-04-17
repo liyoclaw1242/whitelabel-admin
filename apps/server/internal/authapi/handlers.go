@@ -13,7 +13,7 @@ import (
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/blacklist"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/httperr"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/middleware"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/store"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo"
 )
 
 // RefreshCookieName is the HttpOnly cookie carrying the refresh JWT.
@@ -25,7 +25,7 @@ func loginRateKey(ip, email string) string { return "login:" + ip + "|" + email 
 // Handlers wires the four auth endpoints against the stores provided.
 type Handlers struct {
 	KP        *auth.KeyPair
-	Users     store.UserRepo
+	Users     repo.UserRepo
 	Blacklist blacklist.Store
 	Limiter   *middleware.Limiter // per-IP + per-email login limiter
 	CookieSec bool                // set Secure flag on refresh cookie (false in local dev)
@@ -213,7 +213,7 @@ func (h *Handlers) me(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.Users.FindByID(r.Context(), c.Sub)
 	if err != nil {
-		if errors.Is(err, store.ErrUserNotFound) {
+		if errors.Is(err, repo.ErrNotFound) {
 			httperr.WriteFor(w, r, httperr.Unauthorized("user not found"))
 			return
 		}
@@ -257,7 +257,7 @@ func (h *Handlers) clearRefreshCookie(w http.ResponseWriter) {
 	})
 }
 
-func userOutOf(u *store.User) userOut {
+func userOutOf(u *repo.User) userOut {
 	return userOut{
 		ID: u.ID, Email: u.Email, Name: u.Name,
 		TenantID: u.TenantID, Roles: u.Roles, Permissions: u.Permissions,
