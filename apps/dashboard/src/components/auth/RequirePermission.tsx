@@ -17,7 +17,7 @@ export function RequirePermission({
 }: RequirePermissionProps) {
   const { hasPermission } = useAuth();
   if (hasPermission(permission)) {
-    return <>{children}</>;
+    return <div data-testid={`permission-${permission}`}>{children}</div>;
   }
   return <>{fallback ?? <Forbidden permission={permission} />}</>;
 }
