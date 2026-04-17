@@ -82,6 +82,7 @@ export function LoginCard({
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
                 required
+                data-testid="login-email"
               />
             </div>
           </div>
@@ -104,6 +105,7 @@ export function LoginCard({
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={loading}
                 required
+                data-testid="login-password"
               />
             </div>
           </div>
@@ -129,6 +131,7 @@ export function LoginCard({
             className="w-full"
             disabled={disabled}
             aria-busy={loading || undefined}
+            data-testid="login-submit"
           >
             {loading ? (
               <>

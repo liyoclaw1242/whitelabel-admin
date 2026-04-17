@@ -99,6 +99,7 @@ function AppSidebar() {
                     render={<Link href={item.href} />}
                     isActive={pathname === item.href}
                     tooltip={item.title}
+                    data-testid={`nav-${item.href.replace("/", "") || "home"}`}
                   >
                     <item.icon className="size-4" />
                     <span>{item.title}</span>
@@ -113,7 +114,7 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" tooltip="User menu" />}>
+              <DropdownMenuTrigger render={<SidebarMenuButton size="lg" tooltip="User menu" data-testid="user-menu" />}>
                 <Avatar className="size-8">
                   <AvatarFallback>{(user?.name ?? "U").slice(0, 1)}</AvatarFallback>
                 </Avatar>
@@ -131,6 +132,7 @@ function AppSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  data-testid="logout-button"
                   onSelect={() => {
                     logout();
                     router.replace("/login");
