@@ -1,0 +1,14 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "pnpm --filter dashboard build",
+  "outputDirectory": "apps/dashboard/.next",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "functions": {
+    "apps/server/api/catchall.go": {
+      "runtime": "@vercel/go@latest"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/apps/server/api/catchall" }
+  ]
+}
