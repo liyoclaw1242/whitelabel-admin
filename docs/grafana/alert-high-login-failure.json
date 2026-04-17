@@ -1,0 +1,57 @@
+{
+  "name": "High Login Failure Rate",
+  "folder": "whitelabel-alerts",
+  "interval": "1m",
+  "rules": [
+    {
+      "grafana_alert": {
+        "title": "High Login Failure Rate",
+        "condition": "C",
+        "data": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "datasourceUid": "${DS_TEMPO}",
+            "model": {
+              "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" } | rate()"
+            },
+            "relativeTimeRange": { "from": 300, "to": 0 }
+          },
+          {
+            "refId": "B",
+            "queryType": "traceqlMetrics",
+            "datasourceUid": "${DS_TEMPO}",
+            "model": {
+              "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" && span.http.status_code >= 400 } | rate()"
+            },
+            "relativeTimeRange": { "from": 300, "to": 0 }
+          },
+          {
+            "refId": "C",
+            "datasourceUid": "__expr__",
+            "model": {
+              "type": "math",
+              "expression": "$B / $A",
+              "conditions": [
+                {
+                  "evaluator": { "type": "gt", "params": [0.1] }
+                }
+              ]
+            }
+          }
+        ],
+        "no_data_state": "OK",
+        "exec_err_state": "Alerting",
+        "for": "5m",
+        "annotations": {
+          "summary": "Login failure rate exceeds 10% over 5 minutes",
+          "description": "The ratio of failed login attempts (4xx) to total login attempts on /api/auth/login has exceeded 10% for 5 minutes. Check for brute-force attacks or auth service issues."
+        },
+        "labels": {
+          "severity": "warning",
+          "service": "whitelabel-api"
+        }
+      }
+    }
+  ]
+}

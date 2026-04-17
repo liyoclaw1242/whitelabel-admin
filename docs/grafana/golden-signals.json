@@ -1,0 +1,106 @@
+{
+  "dashboard": {
+    "title": "Golden Signals — whitelabel-api",
+    "uid": "golden-signals-whitelabel",
+    "tags": ["whitelabel", "golden-signals", "ops"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": { "from": "now-1h", "to": "now" },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Latency (p50 / p95 / p99)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "targets": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route != \"\" } | quantile_over_time(duration, 0.5) by (span.http.route)",
+            "legendFormat": "p50 {{span.http.route}}"
+          },
+          {
+            "refId": "B",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route != \"\" } | quantile_over_time(duration, 0.95) by (span.http.route)",
+            "legendFormat": "p95 {{span.http.route}}"
+          },
+          {
+            "refId": "C",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route != \"\" } | quantile_over_time(duration, 0.99) by (span.http.route)",
+            "legendFormat": "p99 {{span.http.route}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "ms" }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Traffic (RPS)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "targets": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && kind = server } | rate() by (span.http.route)",
+            "legendFormat": "{{span.http.route}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "reqps" }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Errors (% non-2xx)",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "targets": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && status = error } | rate() by (span.http.route)",
+            "legendFormat": "errors {{span.http.route}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": { "unit": "percentunit", "max": 1 }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Saturation (active spans)",
+        "type": "stat",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "targets": [
+          {
+            "refId": "A",
+            "queryType": "traceqlMetrics",
+            "query": "{ resource.service.name = \"whitelabel-api\" && kind = server } | rate()",
+            "legendFormat": "active request rate"
+          }
+        ],
+        "description": "Proxy for saturation — measures concurrent request rate. True CPU/memory saturation requires Vercel Analytics or custom metrics."
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "DS_TEMPO",
+          "type": "datasource",
+          "query": "tempo",
+          "current": { "text": "grafanacloud-traces", "value": "grafanacloud-traces" }
+        }
+      ]
+    },
+    "schemaVersion": 39
+  },
+  "overwrite": true
+}
