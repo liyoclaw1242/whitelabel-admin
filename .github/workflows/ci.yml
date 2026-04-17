@@ -67,6 +67,21 @@ jobs:
         # simply skipped. Sentry source-map upload is gated on
         # SENTRY_AUTH_TOKEN being present (it is not, in CI, by design).
 
+  vitest:
+    name: vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter dashboard test
+
   go-test:
     name: go-test
     runs-on: ubuntu-latest
@@ -81,24 +96,6 @@ jobs:
           cache-dependency-path: apps/server/go.sum
       - run: go vet ./...
       - run: go test -race -count=1 ./...
-
-  migrate:
-    name: migrate (prod)
-    needs: [go-test]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/server
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: apps/server/go.mod
-          cache-dependency-path: apps/server/go.sum
-      - run: go run ./cmd/migrate up
-        env:
-          DATABASE_URL: ${{ secrets.NEON_PROD_URL }}
 
   migrate-preview:
     name: migrate (preview)
