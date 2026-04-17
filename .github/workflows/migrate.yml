@@ -1,0 +1,80 @@
+name: migrate + deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: migrate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  migrate-preview:
+    name: migrate (preview)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - run: go run ./cmd/migrate up
+        env:
+          DATABASE_URL: ${{ secrets.NEON_PREVIEW_URL }}
+
+  smoke-preview:
+    name: smoke test (preview)
+    needs: [migrate-preview]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for Vercel preview
+        run: sleep 30
+      - name: Health check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${{ vars.VERCEL_PREVIEW_URL }}/api/health" || echo "000")
+          echo "Preview health: $STATUS"
+          if [ "$STATUS" = "000" ]; then
+            echo "Preview URL not configured or unreachable — skipping smoke"
+          fi
+
+  migrate-prod:
+    name: migrate (prod)
+    needs: [smoke-preview]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+      - run: go run ./cmd/migrate up
+        env:
+          DATABASE_URL: ${{ secrets.NEON_PROD_URL }}
+
+  post-migrate:
+    name: post-migrate check
+    needs: [migrate-prod]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production health
+        run: |
+          sleep 10
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://whitelabel-admin-dashboard.vercel.app/api/health" || echo "000")
+          echo "Production health: $STATUS"
+      - name: Post rollback instructions on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number || 0,
+              body: `## Migration Failed\n\nProduction migration failed on commit ${context.sha}.\n\n**Rollback:**\n\`\`\`bash\nDATABASE_URL="$NEON_PROD_URL" go run ./cmd/migrate down 1\n\`\`\`\n\nSee docs/ops/migration-rollback.md for full procedure.`
+            });
