@@ -14,14 +14,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/auth"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/blacklist"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/db"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
-	pgxrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo/pgx"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/router"
-	memrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/repo/memory"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/auth"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/blacklist"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/db"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/health"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/otel"
+	pgxrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/repo/pgx"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/router"
+	memrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/repo/memory"
 )
 
 func main() {

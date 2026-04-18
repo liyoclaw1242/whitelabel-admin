@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/db"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/health"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/otel"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/internal/router"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/db"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/health"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/otel"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/router"
 )
 
 var (

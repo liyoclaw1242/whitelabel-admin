@@ -1,0 +1,55 @@
+// Package health provides the /api/health endpoint.
+package health
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/httperr"
+)
+
+const pingTimeout = 2 * time.Second
+
+// Pinger is the minimal surface from *sql.DB we need.
+type Pinger interface {
+	PingContext(ctx context.Context) error
+}
+
+// Handler returns the /api/health handler. It pings the DB with a 2s timeout.
+// Behavior:
+//   - db == nil  → 503 application/json  {"db":"not_configured"} (graceful degradation)
+//   - ping fails → 503 application/problem+json
+//   - ping ok    → 200 application/json  {"status":"ok","db":"connected"}
+func Handler(db Pinger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if db == nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"db": "not_configured"})
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), pingTimeout)
+		defer cancel()
+
+		if err := db.PingContext(ctx); err != nil {
+			p := httperr.Problem{
+				Type:   "about:blank",
+				Title:  "Service Unavailable",
+				Status: http.StatusServiceUnavailable,
+				Detail: "Database is unreachable.",
+			}
+			httperr.WriteFor(w, r, &p)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"status": "ok",
+			"db":     "connected",
+		})
+	}
+}
