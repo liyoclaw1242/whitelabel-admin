@@ -15,9 +15,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/auth"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/blacklist"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/db"
-	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/health"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/otel"
+	pgxrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/repo/pgx"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/router"
 )
 
@@ -59,20 +61,38 @@ func initHandler() {
 		slog.Error("otel.Init failed — continuing without tracing", "error", err)
 	}
 
-	var conn health.Pinger
+	deps := router.Deps{
+		Blacklist: blacklist.NewMemory(),
+		CookieSec: envDefault("COOKIE_SECURE", "") != "",
+	}
+
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
-		d, err := db.Open(dbURL)
+		pool, err := db.OpenPool(context.Background(), dbURL)
 		if err != nil {
-			slog.Error("DATABASE_URL present but Open failed — continuing without DB", "error", err)
+			slog.Error("DATABASE_URL present but OpenPool failed — continuing without DB", "error", err)
 		} else {
-			conn = d
-			slog.Info("database connected")
+			deps.DB = &db.PoolPinger{Pool: pool}
+			deps.Users = pgxrepo.NewUserRepo(pool)
+			deps.AuditRepo = pgxrepo.NewAuditRepo(pool)
+			slog.Info("database connected (pgxpool)")
 		}
 	} else {
 		slog.Warn("DATABASE_URL not set — /api/health will report not_configured")
 	}
 
-	handler = router.New(conn)
+	if priv, pub := os.Getenv("JWT_PRIVATE_KEY"), os.Getenv("JWT_PUBLIC_KEY"); priv != "" && pub != "" {
+		kp, err := auth.LoadKeyPair(priv, pub)
+		if err != nil {
+			slog.Error("JWT keypair invalid — /api/auth/* will stay disabled", "error", err)
+		} else {
+			deps.KP = kp
+			slog.Info("auth endpoints enabled")
+		}
+	} else {
+		slog.Warn("JWT_PRIVATE_KEY/JWT_PUBLIC_KEY not set — /api/auth/* endpoints disabled")
+	}
+
+	handler = router.NewWithDeps(deps)
 }
 
 func envDefault(key, fallback string) string {

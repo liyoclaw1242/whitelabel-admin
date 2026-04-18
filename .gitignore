@@ -6,5 +6,6 @@ dist
 *.tsbuildinfo
 .env
 .env.local
+.env.migrate
 .DS_Store
 .vercel
