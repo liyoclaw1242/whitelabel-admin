@@ -31,7 +31,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   status: "idle" | "loading" | "ready";
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
 }
 
@@ -98,7 +98,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Tell the backend first so the refresh JTI is revoked (blacklisted)
+    // and the HttpOnly refresh cookie is cleared server-side. Best-effort:
+    // if the call fails (offline, network), we still drop local state —
+    // users expect "log out" to succeed at least on their own device.
+    try {
+      await apiFetch<void>("/api/auth/logout", { method: "POST" });
+    } catch {
+      // swallow
+    }
     setAccessToken(null);
     setSessionCookie("");
     setUser(null);

@@ -133,8 +133,8 @@ function AppSidebar() {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   data-testid="logout-button"
-                  onSelect={() => {
-                    logout();
+                  onSelect={async () => {
+                    await logout();
                     router.replace("/login");
                   }}
                 >
