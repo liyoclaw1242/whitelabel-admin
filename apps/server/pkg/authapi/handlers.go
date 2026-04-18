@@ -149,7 +149,11 @@ func (h *Handlers) refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := h.Users.FindByID(r.Context(), claims.Sub)
+	// The refresh token carries the caller's tenant_id; inject it into
+	// ctx so the pgx UserRepo can scope FindByID (no AuthContext middleware
+	// runs on this route — refresh is the one that creates a fresh session).
+	ctx := middleware.WithTenantID(r.Context(), claims.TenantID)
+	u, err := h.Users.FindByID(ctx, claims.Sub)
 	if err != nil {
 		httperr.WriteFor(w, r, httperr.Unauthorized("user not found"))
 		return
