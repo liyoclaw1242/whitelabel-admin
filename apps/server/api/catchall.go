@@ -7,7 +7,8 @@
 // The chi router inside decides what to do with the URL.
 //
 // Deployed as `whitelabel-admin-server` on Vercel, git-linked to this
-// repo's `apps/server/` rootDirectory.
+// repo's `apps/server/` rootDirectory. The Ignored Build Step on that
+// project skips deploys when no files under `apps/server/` changed.
 package handler
 
 import (
