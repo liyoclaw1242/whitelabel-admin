@@ -5,6 +5,9 @@
 // role: Vercel's Go runtime picks up `api/*.go` and wires the path via
 // `vercel.json` rewrites — every `/api/*` request is routed to `Handler`.
 // The chi router inside decides what to do with the URL.
+//
+// Deployed as `whitelabel-admin-server` on Vercel, git-linked to this
+// repo's `apps/server/` rootDirectory.
 package handler
 
 import (
