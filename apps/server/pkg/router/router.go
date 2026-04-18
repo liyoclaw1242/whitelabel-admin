@@ -65,7 +65,10 @@ func NewWithDeps(d Deps) *chi.Mux {
 		h.Mount(r)
 
 		// /api/auth/me sits behind AuthContext (Bearer JWT required).
-		r.With(middleware.AuthContext(d.KP)).Get("/api/auth/me", h.MeHandler())
+		// Tenant middleware extracts tenant_id from the JWT claims into
+		// the request context so the pgx UserRepo.FindByID can scope
+		// by tenant on the way back to the DB.
+		r.With(middleware.AuthContext(d.KP), middleware.Tenant).Get("/api/auth/me", h.MeHandler())
 	}
 
 	return r
