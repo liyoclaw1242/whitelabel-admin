@@ -17,22 +17,33 @@ type UserRepo struct{ pool *pgxpool.Pool }
 
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo { return &UserRepo{pool: pool} }
 
+// FindByEmail looks up a user by email. When the context carries a
+// tenant_id (post-login requests), the query is scoped to that tenant.
+// When there is no tenant on the context (login flow — the caller
+// does not yet know which tenant to probe), the lookup falls back to
+// a cross-tenant match. Schema invariant: UNIQUE(tenant_id, email),
+// which means collisions become possible only once a second tenant
+// reuses an email — a case that needs explicit tenant selection in
+// the login request. See TODO below.
 func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*repo.User, error) {
-	tid, err := tenantID(ctx)
-	if err != nil {
-		return nil, err
+	sql := `SELECT u.id, u.tenant_id, u.email, u.name, u.password_hash, u.created_at, u.updated_at,
+	        array_agg(DISTINCT rl.name) FILTER (WHERE rl.name IS NOT NULL) AS roles,
+	        array_agg(DISTINCT p.key) FILTER (WHERE p.key IS NOT NULL) AS permissions
+	 FROM users u
+	 LEFT JOIN user_roles ur ON ur.user_id = u.id
+	 LEFT JOIN roles rl ON rl.id = ur.role_id
+	 LEFT JOIN role_permissions rp ON rp.role_id = rl.id
+	 LEFT JOIN permissions p ON p.id = rp.permission_id
+	 WHERE u.email = $1`
+	args := []any{email}
+	if tid, ok := middleware.TenantIDFromContext(ctx); ok {
+		sql += ` AND u.tenant_id = $2`
+		args = append(args, tid)
 	}
-	row := r.pool.QueryRow(ctx,
-		`SELECT u.id, u.tenant_id, u.email, u.name, u.password_hash, u.created_at, u.updated_at,
-		        array_agg(DISTINCT rl.name) FILTER (WHERE rl.name IS NOT NULL) AS roles,
-		        array_agg(DISTINCT p.key) FILTER (WHERE p.key IS NOT NULL) AS permissions
-		 FROM users u
-		 LEFT JOIN user_roles ur ON ur.user_id = u.id
-		 LEFT JOIN roles rl ON rl.id = ur.role_id
-		 LEFT JOIN role_permissions rp ON rp.role_id = rl.id
-		 LEFT JOIN permissions p ON p.id = rp.permission_id
-		 WHERE u.tenant_id = $1 AND u.email = $2
-		 GROUP BY u.id`, tid, email)
+	// TODO(multi-tenant): once a second tenant exists, extend the login
+	// payload (or path) with a tenant selector and scope this query.
+	sql += ` GROUP BY u.id`
+	row := r.pool.QueryRow(ctx, sql, args...)
 	return scanUser(row)
 }
 
