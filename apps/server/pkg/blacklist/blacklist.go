@@ -1,8 +1,13 @@
 // Package blacklist tracks revoked refresh-token JTIs.
 //
-// Phase 3 uses an in-memory sync.Map stub so we can ship without the
-// Cloudflare KV namespace. TODO(#N_KV): swap to Cloudflare KV when #138
-// provisioning lands.
+// Two backends ship: Memory (process-local sync.Map, fine for unit
+// tests and local dev) and Postgres (refresh_blacklist table, used
+// in every deployed environment — survives serverless cold-starts and
+// is shared across all instances).
+//
+// The original architecture called for a Cloudflare KV backend; we
+// dropped that dependency in favour of reusing Neon — one less vendor
+// and one less API token to rotate.
 package blacklist
 
 import (

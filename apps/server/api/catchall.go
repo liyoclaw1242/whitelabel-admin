@@ -66,7 +66,6 @@ func initHandler() {
 	}
 
 	deps := router.Deps{
-		Blacklist: blacklist.NewMemory(),
 		CookieSec: envDefault("COOKIE_SECURE", "") != "",
 	}
 
@@ -78,10 +77,18 @@ func initHandler() {
 			deps.DB = &db.PoolPinger{Pool: pool}
 			deps.Users = pgxrepo.NewUserRepo(pool)
 			deps.AuditRepo = pgxrepo.NewAuditRepo(pool)
-			slog.Info("database connected (pgxpool)")
+			deps.Blacklist = blacklist.NewPostgres(pool)
+			slog.Info("database connected (pgxpool) — refresh blacklist backed by Postgres")
 		}
 	} else {
 		slog.Warn("DATABASE_URL not set — /api/health will report not_configured")
+	}
+
+	// Fallback: if the DB path above failed or wasn't configured, keep
+	// an in-memory blacklist so login/logout endpoints can still boot.
+	// NOT safe across cold-starts; only covers the degraded-mode path.
+	if deps.Blacklist == nil {
+		deps.Blacklist = blacklist.NewMemory()
 	}
 
 	if priv, pub := os.Getenv("JWT_PRIVATE_KEY"), os.Getenv("JWT_PUBLIC_KEY"); priv != "" && pub != "" {
