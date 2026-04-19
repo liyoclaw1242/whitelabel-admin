@@ -19,7 +19,8 @@
           "refId": "A",
           "datasourceUid": "${DS_TEMPO}",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" } | rate()"
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" } | rate()",
+            "queryType": "traceql"
           },
           "relativeTimeRange": {
             "from": 300,
@@ -30,7 +31,8 @@
           "refId": "B",
           "datasourceUid": "${DS_TEMPO}",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" && span.http.status_code >= 400 } | rate()"
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" && span.http.status_code >= 400 } | rate()",
+            "queryType": "traceql"
           },
           "relativeTimeRange": {
             "from": 300,
@@ -74,7 +76,8 @@
           "refId": "A",
           "datasourceUid": "${DS_TEMPO}",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && status = error } | rate()"
+            "query": "{ resource.service.name = \"whitelabel-api\" && status = error } | rate()",
+            "queryType": "traceql"
           },
           "relativeTimeRange": {
             "from": 300,
@@ -118,7 +121,8 @@
           "refId": "A",
           "datasourceUid": "${DS_TEMPO}",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && kind = server } | quantile_over_time(duration, 0.95)"
+            "query": "{ resource.service.name = \"whitelabel-api\" && kind = server } | quantile_over_time(duration, 0.95)",
+            "queryType": "traceql"
           },
           "relativeTimeRange": {
             "from": 600,
@@ -162,7 +166,8 @@
           "refId": "A",
           "datasourceUid": "${DS_TEMPO}",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" } | rate()"
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" } | rate()",
+            "queryType": "traceql"
           },
           "relativeTimeRange": {
             "from": 600,
@@ -173,7 +178,8 @@
           "refId": "B",
           "datasourceUid": "${DS_TEMPO}",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" && span.http.status_code >= 400 } | rate()"
+            "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" && span.http.status_code >= 400 } | rate()",
+            "queryType": "traceql"
           },
           "relativeTimeRange": {
             "from": 600,
@@ -243,7 +249,7 @@
           "refId": "A",
           "datasourceUid": "${DS_LOKI}",
           "model": {
-            "expr": "count_over_time({service_name=\"whitelabel-api\"} |= \"pool_exhausted\" or |= \"connection_timeout\" [5m])"
+            "expr": "count_over_time({service_name=\"whitelabel-api\"} |~ \"pool_exhausted|connection_timeout\" [5m])"
           },
           "relativeTimeRange": {
             "from": 300,
