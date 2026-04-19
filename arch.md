@@ -3,10 +3,11 @@
 ## Domain Model
 
 ### Core Domains
-- **Theming**: The central domain. Manages color tokens (OKLch), theme presets, light/dark mode, typography, spacing, shadows. Persisted to localStorage. This is the product's primary value proposition — white-label customization.
-- **Backend Service**: Go API server (`apps/server`) using net/http stdlib. Connects to Turso (LibSQL) for persistence. Deployed to Vercel Serverless. Proxied through Next.js rewrites to avoid CORS.
-- **Dashboard**: Admin overview with stat cards (users, activity, revenue, pending). Currently static/hardcoded data.
-- **Navigation**: Sidebar + header shell with breadcrumbs, search, user menu, color mode toggle.
+- **Theming**: The central product domain. Manages color tokens (OKLch), theme presets, light/dark mode, typography, spacing, shadows. Persisted to localStorage. This is the product's primary value proposition — white-label customization.
+- **Auth**: JWT (RS256) access + refresh flow with HttpOnly refresh cookie. Revocation via `refresh_blacklist` table. Per-tenant scoping + role-based permissions (admin / editor / viewer) seeded on migration.
+- **Backend Service**: Go serverless handler (`apps/server/api/catchall.go`) on Vercel Go runtime (`@vercel/go@3.5.0`). chi router delegates to package handlers; pgx pool connects to Neon Postgres; OTel traces export to Grafana Cloud Tempo. Proxied from the dashboard via Next.js rewrites.
+- **Dashboard**: Admin overview with stat cards. Backed by real `/api/*` endpoints via the BACKEND_URL rewrite.
+- **Navigation**: Sidebar + header shell with breadcrumbs, search, user menu, color mode toggle, RBAC-gated nav items.
 - **UI Components**: Shared component library (`@whitelabel/ui`) with 60+ shadcn v4 components, framework-agnostic.
 
 ### Bounded Contexts
@@ -32,7 +33,7 @@ graph LR
 ### Tech Stack
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Framework | Next.js (App Router) | canary |
+| Framework | Next.js (App Router, Turbopack) | 16.x |
 | Language | TypeScript (strict) | 5.7+ |
 | Styling | Tailwind CSS | v4 |
 | UI Library | shadcn/ui (via @whitelabel/ui) | v4.1 |
@@ -41,15 +42,21 @@ graph LR
 | Charts | recharts | 3.8 |
 | Color System | OKLch (perceptual uniform) | — |
 | Font | Geist Sans (Google Fonts) | — |
-| Package Manager | pnpm (workspace) | 9+ |
+| Package Manager | pnpm (workspace) | 10+ |
 | Runtime | Node.js | 20+ |
-| Backend | Go (net/http stdlib) | 1.22+ |
-| Database | Turso (LibSQL) | — |
-| Backend Deploy | Vercel Serverless | — |
-| Frontend Deploy | Vercel | — |
-| API Proxy | Next.js rewrites (`/api/*` → Go) | — |
-| Persistence (client) | localStorage | — |
-| Dark Mode | CSS class strategy (.dark) | — |
+| Backend language | Go | 1.25+ |
+| Backend HTTP router | chi/v5 | — |
+| Backend DB driver | pgx/v5 (`database/sql` + pgxpool) | — |
+| Database | Neon Postgres | pg 17 |
+| Backend deploy | Vercel Go serverless (`@vercel/go@3.5.0`) | — |
+| Frontend deploy | Vercel (Next.js preset) | — |
+| API proxy | Next.js `rewrites()` → `BACKEND_URL` | — |
+| Auth | JWT RS256, HttpOnly refresh cookie, Postgres JTI blacklist | — |
+| Observability (BE) | OpenTelemetry → Grafana Cloud Tempo | `@vercel/go@3.5.0` |
+| Observability (FE) | Grafana Faro Web SDK | `@grafana/faro-web-sdk` |
+| Migrations | golang-migrate v4 (`cmd/migrate`) | — |
+| Theme persistence (client) | localStorage | — |
+| Dark mode | CSS class strategy (.dark) | — |
 
 ### Data Flow
 
@@ -77,63 +84,144 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
   participant Browser
-  participant Vercel as Vercel (Next.js)
-  participant Go as Vercel Serverless (Go)
-  participant Turso as Turso (LibSQL)
+  participant Dashboard as Next.js (apps/dashboard)
+  participant Server as Vercel Go (apps/server)
+  participant Neon as Neon Postgres
+  participant Grafana as Grafana Cloud
 
-  Browser->>Vercel: GET /api/health
-  Vercel->>Go: proxy via rewrites
-  Go->>Turso: DB ping
-  Turso-->>Go: OK
-  Go-->>Vercel: {"status":"ok","db":"connected"}
-  Vercel-->>Browser: 200 JSON
+  Browser->>Dashboard: GET /api/auth/me  (Bearer JWT)
+  Dashboard->>Server: rewrite via BACKEND_URL
+  Server->>Server: AuthContext middleware (JWT verify)
+  Server->>Server: Tenant middleware (tenant_id → ctx)
+  Server->>Neon: SELECT ... FROM users WHERE tenant_id=$1
+  Neon-->>Server: row
+  Server-->>Dashboard: 200 JSON
+  Dashboard-->>Browser: passthrough
+  Note over Server,Grafana: OTel BatchSpanProcessor + per-invocation ForceFlush
+  Server->>Grafana: OTLP trace (async)
 ```
+
+### Deployment Topology
+
+```
+GitHub: liyoclaw1242/whitelabel-admin (branch: main, tags: v*)
+  │ push to main
+  │ ┌──────────────────────────────────────────────────────┐
+  │ │ Ignored Build Step (per-project path filter)         │
+  │ └──────────────────────────────────────────────────────┘
+  │       │                                │
+  ▼       ▼                                ▼
+Vercel project: whitelabel-admin-server   Vercel project: whitelabel-admin-dashboard
+  rootDirectory: apps/server               rootDirectory: apps/dashboard
+  framework: Other (Go)                    framework: Next.js
+  alias: whitelabel-admin-api.vercel.app   alias: whitelabel-admin-dashboard.vercel.app
+  env: DATABASE_URL, JWT_*, OTEL_*         env: BACKEND_URL, NEXT_PUBLIC_GRAFANA_FARO_*
+  ↓                                         ↓
+Neon Postgres (ap-southeast-1)            Grafana Cloud Faro (ap-northeast-0)
+  branches: main / preview / dev           +  Tempo (traces)  +  Loki (logs)
+```
+
+Tag pushes trigger `.github/workflows/release.yml` (full CI → migrate-prod
+→ smoke). Regular branch pushes to `main` also run `migrate.yml`
+(preview migrate → smoke → prod migrate → post-migrate health) and the
+git-linked auto-deploys kick off both Vercel projects in parallel.
 
 ### Folder Structure
 ```
 whitelabel-admin/
   apps/
-    dashboard/                    # Next.js App Router app
+    dashboard/                    # Next.js App Router app — rootDirectory of whitelabel-admin-dashboard
       src/
         app/
-          layout.tsx              # Root layout (Geist font, ThemeProvider)
+          layout.tsx              # Root layout (Geist font, ThemeProvider, AuthProvider, FaroProvider)
           globals.css             # Tailwind v4, CSS vars (light + dark)
+          login/page.tsx          # unauth'd entry — calls /api/auth/login
           (dashboard)/
-            layout.tsx            # Sidebar + header shell (client component)
+            layout.tsx            # Sidebar + header shell, RBAC-gated nav
             page.tsx              # Home/overview with stat cards
-    server/                       # Go backend service (NOT in pnpm workspace)
-      main.go                     # net/http server, Turso connection, /api/health
-      go.mod                      # Go module
-      Dockerfile                  # Multi-stage build (golang → alpine)
-    storybook/                    # Storybook 8 + React + Vite (planned, see #85)
-      .storybook/                 # main.ts, preview.tsx (ThemeProvider decorator + toolbar)
-      src/
-        styles.css                # mirrors dashboard globals.css for Tailwind v4
-        stories/{atoms,forms,layout}/ # *.stories.tsx — one per @whitelabel/ui component
+            users/, theme-editor/ # feature pages
+        lib/
+          auth-store.tsx          # AuthProvider, useAuth — login / logout (calls /api/auth/logout) / hasPermission
+          api.ts                  # apiFetch with ProblemError and Bearer token injection
+        components/providers/
+          FaroProvider.tsx        # initializes @grafana/faro-web-sdk on mount
+      next.config.ts              # rewrites /api/:path* → ${BACKEND_URL}/api/:path*
+      vercel.json                 # (none — uses dashboard project config + auto-detect)
+
+    server/                       # Go backend — rootDirectory of whitelabel-admin-server
+      api/
+        catchall.go               # Vercel Go entry (Handler). Wires pgxpool + repos + JWT + blacklist, delegates to chi.
+      cmd/
+        api/main.go               # local dev entry (net/http ListenAndServe); NOT used in Vercel deploy
+        migrate/main.go           # golang-migrate CLI (`go run ./cmd/migrate up|down|version|force`)
+        keygen/main.go            # produces an RS256 keypair (PEM) on stdout
+      pkg/                        # shared packages — NOT internal/, Vercel Go builder rejects internal/
+        auth/                     # KeyPair (LoadKeyPair, Sign, VerifyRefresh), Claims, RefreshClaims
+        authapi/                  # /api/auth/login, /refresh, /logout, /me handlers
+        blacklist/                # Store interface; Memory (local dev) + Postgres (prod, refresh_blacklist)
+        db/                       # Open (database/sql), OpenPool (pgxpool), PoolPinger (health.Pinger)
+        health/                   # Handler returning {status, db}
+        httperr/                  # RFC 7807 problem+json responses
+        logging/                  # slog handler config
+        middleware/               # OTel, AuthContext, Tenant, Audit, RateLimit, RBAC
+        otel/                     # Provider wraps otlptracehttp + BatchSpanProcessor + ForceFlush
+        repo/                     # UserRepo/TenantRepo/AuditRepo interfaces; memory/ + pgx/ impls
+        router/                   # chi-based NewWithDeps(Deps) — mounts routes when deps present
+      migrations/                 # 10 .up/.down SQL files (tenants/users/roles/perms/items/audit/seed/blacklist)
+      vercel.json                 # functions: api/catchall.go runtime @vercel/go@3.5.0
+      go.mod / go.sum
+
+    storybook/                    # Storybook 8 + React + Vite — rootDirectory of whitelabel-storybook
+      .storybook/main.ts, preview.tsx
+      src/stories/{atoms,forms,layout}/
+
   packages/
     ui/                           # @whitelabel/ui — shared component library
       src/
         components/
           theme-provider.tsx      # ThemeContext, ThemeProvider
           ui/                     # 60+ shadcn v4 components
-        hooks/
-          use-theme.ts            # useTheme hook
-          use-mobile.ts           # useIsMobile hook
-        lib/
-          theme-config.ts         # ThemeConfig type, color tokens, presets, DOM helpers
-          theme-presets.ts        # 42 tweakcn presets with categories (5177 lines)
-          utils.ts                # cn() utility
-        index.ts                  # Public API barrel export
+        hooks/use-theme.ts, use-mobile.ts
+        lib/theme-config.ts, theme-presets.ts (42 presets, 5177 lines), utils.ts
+        index.ts
+    otel/                         # @whitelabel/otel — shared OTel config for dashboard
+
+  docs/
+    runbook.md                    # On-call procedures (JWT rotation, PITR, forced logout-all)
+    grafana/                      # 2 dashboards + 6 alert rules (provisioned via API, see #194)
+    ops/                          # secret-inventory, secret-rotation, dr-drill-template, neon-branch mgmt
+    decisions/                    # ADRs — vercel-go-otel-lifecycle, otel-naming, sentry-to-faro
+  .github/workflows/
+    ci.yml                        # lint + typecheck + Go build/test + vitest + Playwright
+    migrate.yml                   # push → preview migrate → smoke → prod migrate → health
+    release.yml                   # tag → CI → migrate-prod → deploy → smoke
+    e2e.yml                       # Playwright against preview
+    stale-branch-cleanup.yml
 ```
+
+> `internal/` (Go's visibility-gated dir) is intentionally **not** used
+> in `apps/server/`. Vercel's Go builder wraps each handler in a
+> generated main package whose file path trips Go's internal/
+> visibility rule and the build fails. Everything shared lives under
+> `pkg/` instead.
 
 ## API Contracts
 
 ### Backend Endpoints (Go — `apps/server`)
 | Method | Path | Purpose | Auth |
 |--------|------|---------|------|
-| GET | /api/health | Health check + DB connectivity | No |
+| GET | /api/health | DB ping + status | No |
+| POST | /api/auth/login | email+password → access JWT + refresh cookie | No (rate-limited 5/min per IP+email) |
+| POST | /api/auth/refresh | refresh cookie → new access JWT | Cookie only |
+| POST | /api/auth/logout | blacklist refresh JTI + clear cookie | Cookie only |
+| GET | /api/auth/me | current user + roles + permissions | Bearer JWT |
 
-> **Type sharing strategy**: TBD — OpenAPI spec generated by Go server, with TypeScript types generated from spec for frontend consumption. To be implemented when first business API endpoint is added.
+All error responses follow RFC 7807 (`application/problem+json`) with a
+`trace_id` field populated from the active OTel span.
+
+> **Type sharing strategy**: OpenAPI spec at `docs/api/openapi.yaml`,
+> TypeScript types generated via `pnpm gen:api-types` into
+> `apps/dashboard/src/lib/api-types.ts`.
 
 ### Internal APIs (React Context)
 | Hook/Context | Method | Purpose |
@@ -187,17 +275,21 @@ Long-term product (not MVP). Theme editor is the core feature. Dashboard, Users 
 - 2026-03-25: Schoger ring technique (`ring-1 ring-foreground/[0.08]`) over solid borders
 - 2026-03-26: Dual light/dark ThemeConfig (both modes stored per theme, not separately)
 - 2026-03-31: 42 tweakcn presets imported with category tags
-- 2026-04-01: Preset selector with grid, category filter, search
-- 2026-04-09: OTel-first log monitoring (#80) — raw `@opentelemetry/sdk-node` (not `@vercel/otel`), `packages/otel` shared config, Sentry for client-side errors, Axiom or Grafana Cloud as managed OTLP backend
-- 2026-04-14: Go backend on Vercel Serverless + Turso (#100) — net/http stdlib (no framework), LibSQL via Turso, Next.js rewrites as API proxy. OpenAPI for type sharing (deferred until first business endpoint)
+- 2026-04-09: OTel-first monitoring — raw `@opentelemetry/sdk-node` in dashboard, `otlptracehttp` in server. Grafana Cloud as managed OTLP backend
+- 2026-04-14: Go backend on Vercel Serverless (#100) — chi router, Next.js rewrites as API proxy, OpenAPI for type sharing
+- 2026-04-15: Sentry removed (dashboard) → Grafana Faro Web SDK
+- 2026-04-18: Split deploy into two Vercel projects (`whitelabel-admin-server` + `whitelabel-admin-dashboard`) — each git-linked with an Ignored Build Step path filter so changes in one app don't rebuild the other
+- 2026-04-18: `apps/server/internal/` → `apps/server/pkg/` (Vercel Go builder breaks on `internal/`)
+- 2026-04-19: DB platform finalized on Neon Postgres (was Turso/LibSQL in early plan) — pooled connection per branch via `-pooler` host, pgx/v5 via `database/sql`
+- 2026-04-19: Refresh-token blacklist moved from planned Cloudflare KV to Postgres (`refresh_blacklist` table, migration 000010) — one fewer vendor, one fewer token to rotate
 
 ### Known Tech Debt
 | Item | Impact | Priority |
 |------|--------|----------|
-| No test coverage at all | Regressions undetectable | High |
-| No backend/database | Being addressed — Go + Turso (#100-#105) | In Progress |
-| No auth system | Can't protect admin routes | Medium |
+| BE exports traces only; no metrics exporter | 3 of 6 alert rules in `docs/grafana/alerting-rules.json` still error on `rate()` + expression shape | Medium |
+| BE stdout not shipped to Loki | 2 log-based alerts depend on strings the app doesn't log | Medium |
 | Static stat card data | Dashboard is non-functional beyond visual demo | Low |
+| `users:write` permission not wired (seed uses `users:read/create/update/delete` granular set) | Existing dashboard permission checks may look for the wrong key | Low |
 | LegacyThemeConfig migration code | Dead weight once all clients migrated | Low |
 | Duplicated ColorTokens interface in theme-presets.ts | Should import from theme-config.ts | Low |
 
@@ -228,7 +320,10 @@ See `design-decisions.md` for the full canonical record. Key principles:
 | localStorage | Corrupt JSON | try/catch in load, returns null | Falls back to defaultTheme | Loses customization |
 | CSS injection | `<style>` element fails | — | Theme vars fall back to globals.css defaults | Visual glitch, recoverable on reload |
 | Legacy migration | Old single-mode config in storage | `migrateLegacyTheme()` auto-converts | Converts to dual-mode, dark falls back to defaults | Dark mode may look different than expected |
+| Go server | Cold start | First request in a new instance pays OTel SDK + pgx pool init | Amortised across warm requests via `sync.Once` in catchall.go | First request may take 500-1500ms; subsequent ones <500ms |
 | Go server | Crash/OOM | Vercel function invocation error | Auto-retry on next invocation (stateless) | API calls return 502 briefly |
-| Go server | Turso unreachable | `/api/health` returns 503 | Retry with backoff, log error | API features degraded, frontend still works (client-side theme) |
-| Next.js proxy | `BACKEND_URL` missing | Build warning | Frontend works, API calls fail with Next.js error | API features unavailable |
-| Vercel Serverless | Region outage | Vercel status page | Manual failover or wait | API unavailable, frontend unaffected |
+| Go server | Neon unreachable | `/api/health` returns 503 `{"db":"not_configured"}` or error; pgx queries return pool timeout | Retry with backoff; Neon serverless compute auto-wakes | Auth endpoints degraded (no user lookup); health endpoint still answers structurally |
+| Go server | Refresh blacklist table missing (migration not run) | `refresh_blacklist` INSERT fails → logout returns 500 | Run `go run ./cmd/migrate up` | Logout doesn't blacklist; tokens stay valid until natural expiry |
+| Next.js proxy | `BACKEND_URL` missing | Build warning; `rewrites()` returns `[]` | Frontend /api/* calls resolve to Next.js (likely 404) | API features unavailable; theme-editor still works (client-side) |
+| Vercel Serverless | Region outage | Vercel status page | Manual failover or wait | API unavailable, frontend unaffected (static pages still served from edge) |
+| OTel OTLP exporter | Grafana Cloud unreachable | `ForceFlush` per request exceeds 2s budget and warn-logs | Spans dropped silently; request still succeeds | No traces during outage; app traffic unaffected |
