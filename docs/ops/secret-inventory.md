@@ -13,18 +13,21 @@ Last updated: 2026-04-17 by `ops-20260415-1506114`
 | `GRAFANA_FARO_APP_KEY` | Yes | Yes | Yes | Grafana Cloud (#138) | Faro app identifier |
 | `NEXT_PUBLIC_GRAFANA_FARO_URL` | Yes | Yes | Yes | Grafana Cloud (#138) | Client-side Faro URL |
 | `NEXT_PUBLIC_GRAFANA_FARO_APP_KEY` | Yes | Yes | Yes | Grafana Cloud (#138) | Client-side Faro key |
-| `CF_API_TOKEN` | Yes | Yes | Yes | Cloudflare (#138) | Workers KV Storage: Edit |
-| `CF_ACCOUNT_ID` | Yes | Yes | Yes | Cloudflare (#138) | Account identifier |
-| `CF_KV_NAMESPACE_ID` | Yes | Yes | Yes | Cloudflare (#138) | KV namespace for refresh blacklist |
+| `JWT_PRIVATE_KEY` | Yes | Yes | Yes | Generated via `apps/server/cmd/keygen` | Per-env RS256 private key |
+| `JWT_PUBLIC_KEY` | Yes | Yes | Yes | Generated via `apps/server/cmd/keygen` | Per-env RS256 public key |
+| `BACKEND_URL` | Yes | Yes | Yes | Set to server project alias | Dashboard's Next.js rewrite proxy target |
 | `NEXT_PUBLIC_USE_MOCK_API` | No | No | Yes | OPS (#162) | Temporary — remove when real API live |
+
+Cloudflare envs (`CF_API_TOKEN`, `CF_ACCOUNT_ID`, `CF_KV_NAMESPACE_ID`)
+were removed when the refresh blacklist moved from Cloudflare KV to a
+Postgres table (`refresh_blacklist`, migration 000010). See the
+`pkg/blacklist/pg.go` impl.
 
 ### Not Yet Set
 
 | Variable | Reason | Blocker |
 |----------|--------|---------|
-| `JWT_PRIVATE_KEY` | Per-env RS256 private key | BE keygen tool needed |
-| `JWT_PUBLIC_KEY` | Per-env RS256 public key | BE keygen tool needed |
-| `RESEND_API_KEY` | Transactional email | Resend account (#138) |
+| `RESEND_API_KEY` | Transactional email | Resend account — deferred; notification flows not wired yet |
 
 ## GitHub Actions Secrets
 

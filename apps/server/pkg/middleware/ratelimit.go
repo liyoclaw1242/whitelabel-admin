@@ -18,8 +18,11 @@ type bucket struct {
 	window time.Time
 }
 
-// Limiter is a fixed-window, in-memory rate limiter. TODO(#N_KV): swap to
-// Cloudflare KV when #138 lands so preview + prod can share counters.
+// Limiter is a fixed-window, in-memory rate limiter. Counters live on
+// the serverless instance, so a /api/auth/login brute-forcer who lucks
+// into a cold start gets a fresh budget. Tolerable at the current
+// scale; if per-instance resets become an issue, swap to a Postgres
+// counter (same pattern as refresh_blacklist).
 type Limiter struct {
 	perWindow int
 	window    time.Duration

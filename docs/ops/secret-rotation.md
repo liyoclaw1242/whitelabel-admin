@@ -5,7 +5,6 @@
 | Secret | Rotation Period | Reason |
 |--------|----------------|--------|
 | `JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` | 90 days | RS256 keypair — compromise window mitigation |
-| `CF_API_TOKEN` | 180 days | Cloudflare API token — limited blast radius (KV only) |
 | `RESEND_API_KEY` | 180 days | Email sending — low risk, rotate on schedule |
 | `DATABASE_URL` | On compromise only | Neon connection string — rotate password via Neon dashboard |
 | `OTEL_EXPORTER_OTLP_HEADERS` | On compromise only | Grafana ingest auth — low risk (write-only) |
@@ -41,15 +40,6 @@ vercel redeploy <latest-deployment-url>
 ### 4. Verify
 
 Existing sessions using the old public key will fail validation. Users will need to re-login. This is expected and acceptable for a 90-day rotation.
-
-## Cloudflare API Token Rotation
-
-1. Cloudflare dashboard → My Profile → API Tokens
-2. Create new token with same permissions (Account > Workers KV Storage > Edit)
-3. Update Vercel env: `vercel env rm CF_API_TOKEN production --yes && printf '<new-token>' | vercel env add CF_API_TOKEN production`
-4. Repeat for preview/development
-5. Redeploy
-6. Delete old token in Cloudflare dashboard
 
 ## Emergency Rotation (Compromise)
 

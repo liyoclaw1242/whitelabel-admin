@@ -20,26 +20,26 @@
 
 ### Forced Logout-All
 
-Blacklist all current refresh tokens by flushing the KV namespace:
+The refresh blacklist lives in the `refresh_blacklist` table on Neon.
+To invalidate every outstanding refresh token:
 
-```bash
-# List all keys
-curl -X GET "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$CF_KV_NAMESPACE_ID/keys" \
-  -H "Authorization: Bearer $CF_API_TOKEN"
-
-# Delete each key (or rotate JWT keys — all tokens become invalid)
+```sql
+-- Via psql against NEON_PROD_URL
+TRUNCATE refresh_blacklist;       -- (optional) start from empty
+-- Kill every active refresh by adding them all. Simpler: just
+-- rotate JWT keys below — that makes every JWT unverifiable.
 ```
 
-Faster: rotate JWT keys (step above). All tokens fail validation immediately.
+Faster in practice: rotate JWT keys (step above). All tokens fail
+verification immediately and the blacklist becomes moot.
 
 ### Lost Key Emergency
 
 If the private key is compromised:
 
-1. **Immediately** rotate keys (see above)
-2. Flush the KV blacklist (all refresh tokens are invalid anyway after key rotation)
-3. Monitor login failure alert — expect a spike as users re-authenticate
-4. Notify stakeholders via the on-call contacts
+1. **Immediately** rotate keys (see above) — invalidates every outstanding JWT
+2. Monitor login failure alert — expect a spike as users re-authenticate
+3. Notify stakeholders via the on-call contacts
 
 ## 2. Migration
 
@@ -100,17 +100,14 @@ neonctl branches create --name dr-restore --parent main --point-in-time "2026-04
 2. Click "..." → Promote to Production
 3. Or via CLI: `vercel rollback`
 
-### KV Backup
+### Refresh Blacklist Backup
 
-Cloudflare KV doesn't have built-in backup. To snapshot:
-
-```bash
-# Export all keys
-curl "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/storage/kv/namespaces/$CF_KV_NAMESPACE_ID/keys" \
-  -H "Authorization: Bearer $CF_API_TOKEN" > kv-backup-$(date +%Y%m%d).json
-```
-
-The blacklist is ephemeral — losing it means revoked tokens become valid again until they expire naturally. Acceptable risk for the current scale.
+The `refresh_blacklist` table is backed up automatically with the
+rest of the Neon database (WAL + 7-day PITR on free tier). No
+separate snapshot workflow is needed — a PITR of `main` restores
+the blacklist to the same point as the rest of the schema. The
+blacklist is ephemeral anyway: losing it means revoked tokens
+regain validity only until their natural expiry.
 
 ## 4. Cost Monitoring
 
@@ -121,7 +118,6 @@ The blacklist is ephemeral — losing it means revoked tokens become valid again
 | Grafana Cloud | 50 GB logs, 50 GB traces | 80% of quota | Reduce log verbosity |
 | Neon | 0.5 GB storage, 100 hours compute | 80% of quota | Archive old branches |
 | Vercel | 100 GB bandwidth, 100 hours edge | 80% of quota | Optimize static assets |
-| Cloudflare KV | 100k reads/day, 1k writes/day | 80% of quota | Review blacklist TTL |
 | Resend | 100 emails/day | 80 emails/day | Defer non-critical emails |
 
 ### Checking Usage
@@ -129,7 +125,6 @@ The blacklist is ephemeral — losing it means revoked tokens become valid again
 - **Grafana**: grafana.com → Org Settings → Usage
 - **Neon**: console.neon.tech → Project → Usage
 - **Vercel**: vercel.com → Settings → Usage
-- **Cloudflare**: dash.cloudflare.com → Workers → KV → Analytics
 
 ### Budget Alert Setup
 
@@ -154,7 +149,7 @@ Set up billing alerts in each platform's dashboard. All platforms support email 
 ### Weekly
 
 - [ ] Review Neon branch count (clean up stale preview branches)
-- [ ] Check KV blacklist size (should be < 1000 entries)
+- [ ] Check `refresh_blacklist` row count (`SELECT count(*) FROM refresh_blacklist`); a DELETE-expired pass if it's trending upward
 - [ ] Verify secret rotation calendar (next rotation due date)
 
 ### Escalation Contacts
