@@ -22,6 +22,7 @@ import (
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/auth"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/blacklist"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/db"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/logging"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/otel"
 	pgxrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/repo/pgx"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/router"
@@ -53,8 +54,11 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func initHandler() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
+	// Bootstrap slog with stdout-only first — we need a logger to report
+	// otel.Init failure, but otel.Init is what wires the LoggerProvider
+	// we later want slog to ship through. Re-seat the default once
+	// otel.Init is done.
+	slog.SetDefault(logging.New(nil))
 
 	var err error
 	otelProv, err = otel.Init(context.Background(), otel.Config{
@@ -62,8 +66,11 @@ func initHandler() {
 		ServiceVersion: envDefault("VERCEL_GIT_COMMIT_SHA", "dev"),
 	})
 	if err != nil {
-		slog.Error("otel.Init failed — continuing without tracing", "error", err)
+		slog.Error("otel.Init failed — continuing without tracing/logs", "error", err)
 	}
+	// Now the LoggerProvider (if enabled) exists; rebuild slog so every
+	// subsequent call also ships to OTLP /v1/logs → Grafana Loki.
+	slog.SetDefault(logging.New(otelProv.LoggerProvider()))
 
 	deps := router.Deps{
 		CookieSec: envDefault("COOKIE_SECURE", "") != "",

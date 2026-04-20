@@ -15,13 +15,17 @@ package otel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	otellog "go.opentelemetry.io/otel/log/global"
 	"go.opentelemetry.io/otel/propagation"
+	sdklog "go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
@@ -34,9 +38,13 @@ type Config struct {
 	ServiceVersion string // default "dev"
 }
 
-// Provider holds the TracerProvider handle and lifecycle operations.
+// Provider holds the TracerProvider + LoggerProvider handles and
+// lifecycle operations. A disabled Provider (no OTLP endpoint
+// configured) is still non-nil — every method short-circuits, so
+// callers never need nil checks.
 type Provider struct {
 	tp      *sdktrace.TracerProvider
+	lp      *sdklog.LoggerProvider
 	enabled bool
 }
 
@@ -88,8 +96,31 @@ func Init(ctx context.Context, cfg Config) (*Provider, error) {
 	)
 	otel.SetTracerProvider(tp)
 
-	slog.Info("otel tracing enabled", "endpoint", endpoint, "service.name", cfg.ServiceName)
-	return &Provider{tp: tp, enabled: true}, nil
+	// OTel logs alongside traces — same OTLP gateway, different path
+	// (/v1/logs). Auth/endpoint env vars are shared: OTEL_EXPORTER_OTLP_*
+	// hits both exporters.
+	logExp, err := otlploghttp.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("otlploghttp.New: %w", err)
+	}
+	lp := sdklog.NewLoggerProvider(
+		sdklog.WithProcessor(sdklog.NewBatchProcessor(logExp)),
+		sdklog.WithResource(res),
+	)
+	otellog.SetLoggerProvider(lp)
+
+	slog.Info("otel enabled", "endpoint", endpoint, "service.name", cfg.ServiceName, "signals", "traces+logs")
+	return &Provider{tp: tp, lp: lp, enabled: true}, nil
+}
+
+// LoggerProvider returns the OTel LoggerProvider. Returns nil when the
+// provider is disabled; logging.New tolerates nil and skips the OTel
+// bridge handler in that case.
+func (p *Provider) LoggerProvider() *sdklog.LoggerProvider {
+	if p == nil || !p.enabled {
+		return nil
+	}
+	return p.lp
 }
 
 // Enabled reports whether spans will be exported.
@@ -100,21 +131,36 @@ func (p *Provider) Enabled() bool {
 	return p.enabled
 }
 
-// ForceFlush drains any pending spans. Safe to call on a disabled provider
-// (noop). Intended for serverless Handler defer.
+// ForceFlush drains pending spans AND pending log records. Safe on a
+// disabled provider (noop). Intended for serverless Handler defer.
 func (p *Provider) ForceFlush(ctx context.Context) error {
-	if p == nil || !p.enabled || p.tp == nil {
+	if p == nil || !p.enabled {
 		return nil
 	}
-	return p.tp.ForceFlush(ctx)
+	var errs []error
+	if p.tp != nil {
+		errs = append(errs, p.tp.ForceFlush(ctx))
+	}
+	if p.lp != nil {
+		errs = append(errs, p.lp.ForceFlush(ctx))
+	}
+	return errors.Join(errs...)
 }
 
-// Shutdown flushes + releases exporter resources. Local cmd/api defers this.
+// Shutdown flushes + releases exporter resources for both signals.
+// Local cmd/api defers this.
 func (p *Provider) Shutdown(ctx context.Context) error {
-	if p == nil || !p.enabled || p.tp == nil {
+	if p == nil || !p.enabled {
 		return nil
 	}
-	return p.tp.Shutdown(ctx)
+	var errs []error
+	if p.tp != nil {
+		errs = append(errs, p.tp.Shutdown(ctx))
+	}
+	if p.lp != nil {
+		errs = append(errs, p.lp.Shutdown(ctx))
+	}
+	return errors.Join(errs...)
 }
 
 // Tracer returns a tracer bound to this provider. Callers outside this

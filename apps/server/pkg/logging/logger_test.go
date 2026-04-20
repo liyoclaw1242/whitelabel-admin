@@ -14,7 +14,9 @@ import (
 
 func TestNew_DefaultsToInfoJSON(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "")
-	l := New()
+	// nil LoggerProvider → stdout-only path; verifies the OTel bridge
+	// is skipped without panicking.
+	l := New(nil)
 	if l == nil {
 		t.Fatal("New returned nil")
 	}

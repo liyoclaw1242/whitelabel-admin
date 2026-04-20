@@ -18,15 +18,16 @@ import (
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/blacklist"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/db"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/health"
+	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/logging"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/otel"
+	memrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/repo/memory"
 	pgxrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/repo/pgx"
 	"github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/router"
-	memrepo "github.com/liyoclaw1242/whitelabel-admin/apps/server/pkg/repo/memory"
 )
 
 func main() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
+	// Bootstrap with stdout-only logger so otel.Init failures are visible.
+	slog.SetDefault(logging.New(nil))
 
 	if err := run(); err != nil {
 		slog.Error("fatal", "error", err)
@@ -44,6 +45,9 @@ func run() error {
 		ServiceName:    "whitelabel-api",
 		ServiceVersion: envDefault("VERCEL_GIT_COMMIT_SHA", "dev"),
 	})
+	// Re-seat the default logger so the OTel logs bridge (if enabled)
+	// picks up every subsequent slog.Info/Warn/Error call.
+	slog.SetDefault(logging.New(otelProv.LoggerProvider()))
 	if err != nil {
 		slog.Error("otel.Init failed — continuing without tracing", "error", err)
 	}
