@@ -214,24 +214,6 @@ function DashboardHeader() {
         <Button variant="ghost" size="icon-sm" aria-label="Notifications">
           <BellIcon className="size-4" />
         </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label="User menu" />}>
-            <Avatar className="size-6">
-              <AvatarFallback className="text-xs">U</AvatarFallback>
-            </Avatar>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuItem>
-              <UserIcon className="mr-2 size-4" />
-              Profile
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOutIcon className="mr-2 size-4" />
-              Log out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   );
