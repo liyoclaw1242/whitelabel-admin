@@ -127,7 +127,7 @@
         "targets": [
           {
             "refId": "A",
-            "expr": "sum by (path, status) (rate({service_name=\"whitelabel-api\", status=~\"4..|5..\"}[5m]))",
+            "expr": "sum by (path, status) (rate({service_name=\"whitelabel-api\"} | status=~\"4..|5..\" [5m]))",
             "legendFormat": "{{path}} {{status}}"
           }
         ]
