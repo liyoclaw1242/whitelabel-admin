@@ -29,6 +29,12 @@ func Audit(ar repo.AuditRepo) func(http.Handler) http.Handler {
 			next.ServeHTTP(rw, r)
 
 			entry := buildAuditLog(r, rw.status)
+			// Skip audit for pre-auth endpoints where no identity is
+			// available — inserting empty-string UUIDs into Postgres
+			// fails with "invalid input syntax for type uuid".
+			if entry.TenantID == "" && entry.UserID == "" {
+				return
+			}
 			// Write is best-effort. Failure logs through the repo itself
 			// (memory impl slog.Errors; pgx impl will slog.Warn on retry
 			// path).
