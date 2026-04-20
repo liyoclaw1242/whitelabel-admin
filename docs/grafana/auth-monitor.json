@@ -2,17 +2,32 @@
   "dashboard": {
     "title": "Auth Monitor — whitelabel-api",
     "uid": "auth-monitor-whitelabel",
-    "tags": ["whitelabel", "auth", "ops"],
+    "tags": [
+      "whitelabel",
+      "auth",
+      "ops"
+    ],
     "timezone": "browser",
     "refresh": "30s",
-    "time": { "from": "now-1h", "to": "now" },
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
     "panels": [
       {
         "id": 1,
         "title": "Login Success vs Failure Rate",
         "type": "timeseries",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        },
+        "datasource": {
+          "type": "tempo",
+          "uid": "${DS_TEMPO}"
+        },
         "targets": [
           {
             "refId": "A",
@@ -28,15 +43,25 @@
           }
         ],
         "fieldConfig": {
-          "defaults": { "unit": "reqps" }
+          "defaults": {
+            "unit": "reqps"
+          }
         }
       },
       {
         "id": 2,
         "title": "Refresh Rotation Health",
         "type": "timeseries",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        },
+        "datasource": {
+          "type": "tempo",
+          "uid": "${DS_TEMPO}"
+        },
         "targets": [
           {
             "refId": "A",
@@ -52,15 +77,25 @@
           }
         ],
         "fieldConfig": {
-          "defaults": { "unit": "reqps" }
+          "defaults": {
+            "unit": "reqps"
+          }
         }
       },
       {
         "id": 3,
         "title": "Rate Limit Hits (429s)",
         "type": "timeseries",
-        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-        "datasource": { "type": "tempo", "uid": "${DS_TEMPO}" },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 8
+        },
+        "datasource": {
+          "type": "tempo",
+          "uid": "${DS_TEMPO}"
+        },
         "targets": [
           {
             "refId": "A",
@@ -70,20 +105,30 @@
           }
         ],
         "fieldConfig": {
-          "defaults": { "unit": "reqps" }
+          "defaults": {
+            "unit": "reqps"
+          }
         }
       },
       {
         "id": 4,
-        "title": "Audit Log Anomalies (admin actions)",
-        "type": "logs",
-        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-        "datasource": { "type": "loki", "uid": "${DS_LOKI}" },
+        "title": "HTTP Error Rate by Path",
+        "type": "timeseries",
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 8
+        },
+        "datasource": {
+          "type": "loki",
+          "uid": "${DS_LOKI}"
+        },
         "targets": [
           {
             "refId": "A",
-            "expr": "{service_name=\"whitelabel-api\"} | json | action=~\"delete|update\"",
-            "legendFormat": ""
+            "expr": "sum by (path, status) (rate({service_name=\"whitelabel-api\", status=~\"4..|5..\"}[5m]))",
+            "legendFormat": "{{path}} {{status}}"
           }
         ]
       }
@@ -94,13 +139,19 @@
           "name": "DS_TEMPO",
           "type": "datasource",
           "query": "tempo",
-          "current": { "text": "grafanacloud-traces", "value": "grafanacloud-traces" }
+          "current": {
+            "text": "grafanacloud-traces",
+            "value": "grafanacloud-traces"
+          }
         },
         {
           "name": "DS_LOKI",
           "type": "datasource",
           "query": "loki",
-          "current": { "text": "grafanacloud-logs", "value": "grafanacloud-logs" }
+          "current": {
+            "text": "grafanacloud-logs",
+            "value": "grafanacloud-logs"
+          }
         }
       ]
     },

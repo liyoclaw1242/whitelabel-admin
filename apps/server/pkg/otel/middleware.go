@@ -44,6 +44,14 @@ func Middleware(next http.Handler) http.Handler {
 		rw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rw, r.WithContext(ctx))
 
+		// chi populates RoutePattern AFTER routing, so `http.route` can
+		// only be set post-ServeHTTP. Needed by downstream dashboards /
+		// alerts that group on the low-cardinality pattern (e.g.
+		// `/api/users/{id}`) rather than the exact URL.
+		if rc := chi.RouteContext(r.Context()); rc != nil && rc.RoutePattern() != "" {
+			span.SetAttributes(semconv.HTTPRoute(rc.RoutePattern()))
+			span.SetName("HTTP " + r.Method + " " + rc.RoutePattern())
+		}
 		span.SetAttributes(semconv.HTTPResponseStatusCode(rw.status))
 		if rw.status >= 500 {
 			span.SetStatus(codes.Error, http.StatusText(rw.status))
