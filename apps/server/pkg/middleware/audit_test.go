@@ -95,7 +95,15 @@ func TestAudit_DeriveActionForAllMethods(t *testing.T) {
 	}
 	for m, wantAction := range cases {
 		ar := &memAudit{}
+		c := auth.NewClaims("user-1", "tenant-1", []string{"admin"}, nil)
 		r := chi.NewRouter()
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, rr *http.Request) {
+				ctx := WithClaims(rr.Context(), &c)
+				ctx = WithTenantID(ctx, c.TenantID)
+				next.ServeHTTP(w, rr.WithContext(ctx))
+			})
+		})
 		r.Use(Audit(ar))
 		r.MethodFunc(m, "/api/items/{id}", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
@@ -112,7 +120,15 @@ func TestAudit_DeriveActionForAllMethods(t *testing.T) {
 func TestAudit_FailureDoesNotBlockResponse(t *testing.T) {
 	// Audit repo that always errors. Middleware must log + continue.
 	failing := &failingAudit{}
+	c := auth.NewClaims("user-1", "tenant-1", []string{"admin"}, nil)
 	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, rr *http.Request) {
+			ctx := WithClaims(rr.Context(), &c)
+			ctx = WithTenantID(ctx, c.TenantID)
+			next.ServeHTTP(w, rr.WithContext(ctx))
+		})
+	})
 	r.Use(Audit(failing))
 	r.Post("/api/items", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
@@ -131,4 +147,50 @@ type failingAudit struct{}
 
 func (failingAudit) Write(_ context.Context, _ *repo.AuditLog) error {
 	return context.DeadlineExceeded
+}
+
+func TestAudit_SkipsPreAuthEndpoints_NoClaims(t *testing.T) {
+	ar := &memAudit{}
+	r := chi.NewRouter()
+	r.Use(Audit(ar))
+	r.Post("/api/auth/login", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/login", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if len(ar.logs) != 0 {
+		t.Errorf("expected 0 audit entries for pre-auth POST (no claims), got %d", len(ar.logs))
+	}
+}
+
+func TestAudit_WritesWhenClaimsPresent(t *testing.T) {
+	ar := &memAudit{}
+	c := auth.NewClaims("user-1", "tenant-1", []string{"admin"}, nil)
+
+	r := chi.NewRouter()
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, rr *http.Request) {
+			ctx := WithClaims(rr.Context(), &c)
+			ctx = WithTenantID(ctx, c.TenantID)
+			next.ServeHTTP(w, rr.WithContext(ctx))
+		})
+	})
+	r.Use(Audit(ar))
+	r.Post("/api/items", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/items", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if len(ar.logs) != 1 {
+		t.Fatalf("expected 1 audit entry for authenticated POST, got %d", len(ar.logs))
+	}
+	if ar.logs[0].UserID != "user-1" || ar.logs[0].TenantID != "tenant-1" {
+		t.Errorf("audit entry has wrong identity: user=%q tenant=%q", ar.logs[0].UserID, ar.logs[0].TenantID)
+	}
 }
