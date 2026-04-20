@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Allow release.yml (and any other workflow) to reuse this as a gate.
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}
