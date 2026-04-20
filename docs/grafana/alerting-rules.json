@@ -4,56 +4,60 @@
   "rules": [
     {
       "title": "High Login Failure Rate",
-      "condition": "C",
+      "condition": "E",
       "for": "5m",
       "annotations": {
         "summary": "Login failure rate > 10% over 5 min",
         "runbook": "docs/runbook.md#token-management"
       },
-      "labels": {
-        "severity": "warning",
-        "service": "whitelabel-api"
-      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
       "data": [
         {
           "refId": "A",
-          "datasourceUid": "${DS_TEMPO}",
+          "datasourceUid": "grafanacloud-traces",
           "model": {
             "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" } | rate()",
             "queryType": "traceql"
           },
-          "relativeTimeRange": {
-            "from": 300,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 300, "to": 0 }
         },
         {
           "refId": "B",
-          "datasourceUid": "${DS_TEMPO}",
+          "datasourceUid": "grafanacloud-traces",
           "model": {
             "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/login\" && span.http.status_code >= 400 } | rate()",
             "queryType": "traceql"
           },
-          "relativeTimeRange": {
-            "from": 300,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 300, "to": 0 }
         },
         {
           "refId": "C",
           "datasourceUid": "__expr__",
           "model": {
+            "type": "reduce",
+            "expression": "$A",
+            "reducer": "last",
+            "settings": { "mode": "" }
+          }
+        },
+        {
+          "refId": "D",
+          "datasourceUid": "__expr__",
+          "model": {
+            "type": "reduce",
+            "expression": "$B",
+            "reducer": "last",
+            "settings": { "mode": "" }
+          }
+        },
+        {
+          "refId": "E",
+          "datasourceUid": "__expr__",
+          "model": {
             "type": "math",
-            "expression": "$B / $A",
+            "expression": "$D / $C",
             "conditions": [
-              {
-                "evaluator": {
-                  "type": "gt",
-                  "params": [
-                    0.1
-                  ]
-                }
-              }
+              { "evaluator": { "type": "gt", "params": [0.1] } }
             ]
           }
         }
@@ -61,44 +65,41 @@
     },
     {
       "title": "High Error Rate",
-      "condition": "B",
+      "condition": "C",
       "for": "5m",
       "annotations": {
         "summary": "API error rate > 1% sustained 5 min",
         "runbook": "docs/runbook.md#disaster-recovery"
       },
-      "labels": {
-        "severity": "critical",
-        "service": "whitelabel-api"
-      },
+      "labels": { "severity": "critical", "service": "whitelabel-api" },
       "data": [
         {
           "refId": "A",
-          "datasourceUid": "${DS_TEMPO}",
+          "datasourceUid": "grafanacloud-traces",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && status = error } | rate()",
+            "query": "{ resource.service.name = \"whitelabel-api\" && status = \"error\" } | rate()",
             "queryType": "traceql"
           },
-          "relativeTimeRange": {
-            "from": 300,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 300, "to": 0 }
         },
         {
           "refId": "B",
           "datasourceUid": "__expr__",
           "model": {
-            "type": "threshold",
+            "type": "reduce",
             "expression": "$A",
+            "reducer": "last",
+            "settings": { "mode": "" }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "type": "threshold",
+            "expression": "$B",
             "conditions": [
-              {
-                "evaluator": {
-                  "type": "gt",
-                  "params": [
-                    0.01
-                  ]
-                }
-              }
+              { "evaluator": { "type": "gt", "params": [0.01] } }
             ]
           }
         }
@@ -106,44 +107,41 @@
     },
     {
       "title": "High p95 Latency",
-      "condition": "B",
+      "condition": "C",
       "for": "10m",
       "annotations": {
         "summary": "p95 latency > 500ms sustained 10 min",
         "runbook": "docs/runbook.md#on-call-checklist"
       },
-      "labels": {
-        "severity": "warning",
-        "service": "whitelabel-api"
-      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
       "data": [
         {
           "refId": "A",
-          "datasourceUid": "${DS_TEMPO}",
+          "datasourceUid": "grafanacloud-traces",
           "model": {
-            "query": "{ resource.service.name = \"whitelabel-api\" && kind = server } | quantile_over_time(duration, 0.95)",
+            "query": "{ resource.service.name = \"whitelabel-api\" && kind = \"server\" } | quantile_over_time(duration, 0.95)",
             "queryType": "traceql"
           },
-          "relativeTimeRange": {
-            "from": 600,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 600, "to": 0 }
         },
         {
           "refId": "B",
           "datasourceUid": "__expr__",
           "model": {
-            "type": "threshold",
+            "type": "reduce",
             "expression": "$A",
+            "reducer": "last",
+            "settings": { "mode": "" }
+          }
+        },
+        {
+          "refId": "C",
+          "datasourceUid": "__expr__",
+          "model": {
+            "type": "threshold",
+            "expression": "$B",
             "conditions": [
-              {
-                "evaluator": {
-                  "type": "gt",
-                  "params": [
-                    500
-                  ]
-                }
-              }
+              { "evaluator": { "type": "gt", "params": [500] } }
             ]
           }
         }
@@ -151,56 +149,60 @@
     },
     {
       "title": "Refresh Rotation Failure",
-      "condition": "C",
+      "condition": "E",
       "for": "10m",
       "annotations": {
         "summary": "Refresh token rotation failure > 5% over 10 min",
         "runbook": "docs/runbook.md#token-management"
       },
-      "labels": {
-        "severity": "warning",
-        "service": "whitelabel-api"
-      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
       "data": [
         {
           "refId": "A",
-          "datasourceUid": "${DS_TEMPO}",
+          "datasourceUid": "grafanacloud-traces",
           "model": {
             "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" } | rate()",
             "queryType": "traceql"
           },
-          "relativeTimeRange": {
-            "from": 600,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 600, "to": 0 }
         },
         {
           "refId": "B",
-          "datasourceUid": "${DS_TEMPO}",
+          "datasourceUid": "grafanacloud-traces",
           "model": {
             "query": "{ resource.service.name = \"whitelabel-api\" && span.http.route = \"/api/auth/refresh\" && span.http.status_code >= 400 } | rate()",
             "queryType": "traceql"
           },
-          "relativeTimeRange": {
-            "from": 600,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 600, "to": 0 }
         },
         {
           "refId": "C",
           "datasourceUid": "__expr__",
           "model": {
+            "type": "reduce",
+            "expression": "$A",
+            "reducer": "last",
+            "settings": { "mode": "" }
+          }
+        },
+        {
+          "refId": "D",
+          "datasourceUid": "__expr__",
+          "model": {
+            "type": "reduce",
+            "expression": "$B",
+            "reducer": "last",
+            "settings": { "mode": "" }
+          }
+        },
+        {
+          "refId": "E",
+          "datasourceUid": "__expr__",
+          "model": {
             "type": "math",
-            "expression": "$B / $A",
+            "expression": "$D / $C",
             "conditions": [
-              {
-                "evaluator": {
-                  "type": "gt",
-                  "params": [
-                    0.05
-                  ]
-                }
-              }
+              { "evaluator": { "type": "gt", "params": [0.05] } }
             ]
           }
         }
@@ -214,21 +216,15 @@
         "summary": "Audit log write failure detected — compliance risk",
         "runbook": "docs/runbook.md#disaster-recovery"
       },
-      "labels": {
-        "severity": "critical",
-        "service": "whitelabel-api"
-      },
+      "labels": { "severity": "critical", "service": "whitelabel-api" },
       "data": [
         {
           "refId": "A",
-          "datasourceUid": "${DS_LOKI}",
+          "datasourceUid": "grafanacloud-logs",
           "model": {
             "expr": "count_over_time({service_name=\"whitelabel-api\"} |= \"audit_log_write_error\" [5m])"
           },
-          "relativeTimeRange": {
-            "from": 300,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 300, "to": 0 }
         }
       ]
     },
@@ -240,21 +236,15 @@
         "summary": "Neon connection pool > 80% — scale risk",
         "runbook": "docs/runbook.md#disaster-recovery"
       },
-      "labels": {
-        "severity": "warning",
-        "service": "whitelabel-api"
-      },
+      "labels": { "severity": "warning", "service": "whitelabel-api" },
       "data": [
         {
           "refId": "A",
-          "datasourceUid": "${DS_LOKI}",
+          "datasourceUid": "grafanacloud-logs",
           "model": {
             "expr": "count_over_time({service_name=\"whitelabel-api\"} |~ \"pool_exhausted|connection_timeout\" [5m])"
           },
-          "relativeTimeRange": {
-            "from": 300,
-            "to": 0
-          }
+          "relativeTimeRange": { "from": 300, "to": 0 }
         }
       ]
     }
