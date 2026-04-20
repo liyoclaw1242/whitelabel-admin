@@ -1,0 +1,32 @@
+name: grafana-sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/grafana/**'
+      - 'scripts/grafana-sync.sh'
+      - '.github/workflows/grafana-sync.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: grafana-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: sync dashboards + alert rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run sync script
+        env:
+          GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+          GRAFANA_URL: ${{ vars.GRAFANA_URL }}
+          GRAFANA_FOLDER: ${{ vars.GRAFANA_FOLDER }}
+          DS_TEMPO_UID: ${{ vars.DS_TEMPO_UID }}
+          DS_LOKI_UID: ${{ vars.DS_LOKI_UID }}
+        run: |
+          : "${GRAFANA_URL:=https://liyoclaw1242.grafana.net}"
+          export GRAFANA_URL
+          bash scripts/grafana-sync.sh
